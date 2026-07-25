@@ -1,0 +1,26 @@
+# ─── Python ───────────────────────────────────────────────
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# ─── Go ───────────────────────────────────────────────────
+# Compiled binaries (add specific names if they slip through)
+*.exe
+*.out
+/bin/
+
+# ─── Editors / OS ─────────────────────────────────────────
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# ─── Cryptopals note ──────────────────────────────────────
+# We DO commit the challenge input files under data/ — they're
+# small and keep runs reproducible. Nothing to ignore there.

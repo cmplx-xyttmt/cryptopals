@@ -1,0 +1,7 @@
+# Cryptopals — Python dependencies
+#
+# Kept intentionally small. Prefer the standard library; reach for these only
+# when a challenge genuinely needs them.
+
+pycryptodome      # AES and other primitives (the `Crypto` package) — Set 1 onward
+pytest            # tests / self-checks for solutions
