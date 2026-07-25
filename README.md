@@ -7,7 +7,7 @@ This is also a writing project: I'm using it to explore *how AI changes the way
 I learn*. Claude acts as a tutor and code critic, and along the way we build
 small interactive HTML artifacts to make the trickier ideas click. The
 [`JOURNAL.md`](JOURNAL.md) is the running log of that journey and the raw
-material for a blog post (or series) on [my site](https://cmplx.xyz).
+material for a blog post (or series) on [my site](https://cmplx-xyttmt.github.io).
 
 ## Two solutions per challenge
 
