@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cryptopals"
+version = "0.0.0"
+description = "Cryptopals challenge solutions + my hand-rolled crypto helpers"
+requires-python = ">=3.11"
+
+# Only `cryptolib` is a real importable package. The per-challenge solution
+# dirs (set1/02_fixed_xor/, …) are NOT packages — their names start with digits,
+# which Python can't import — so they stay plain scripts, run directly.
+[tool.setuptools]
+package-dir = { "" = "python" }
+packages = ["cryptolib"]
+
+[tool.pytest.ini_options]
+# Put python/ on sys.path during tests so `from cryptolib import ...` resolves
+# even before an editable install, and keep test discovery scoped to python/.
+pythonpath = ["python"]
+testpaths = ["python"]

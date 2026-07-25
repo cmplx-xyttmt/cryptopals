@@ -129,3 +129,61 @@ worth turning into a blog post. Newest entries at the top of each set.
   good at.
 
 - **Status:** solved — both versions done (stdlib + scratch v2). v2 nits optional.
+
+### Challenge 2 — Fixed XOR · [link](https://cryptopals.com/sets/1/challenges/2)
+
+- **Concept it teaches:** XOR over equal-length byte buffers — the single most
+  reused primitive in Set 1 (challenges 3, 4, 5, 6 all build on it). Also a
+  second dose of the bytes-vs-text lesson, from the opposite direction.
+- **First approach:** `bytes.fromhex` both inputs, XOR them with a comprehension
+  (`a ^ b for a, b in zip(...)`), return `.hex()`. Core logic was right first try.
+- **Wrong turns / bugs:** I left in a debug line — `xor.decode('ascii')` + a
+  `print` — from checking that the answer spelled "the kid don't play". That's a
+  latent crash: XOR output is *arbitrary bytes*, not text, so `decode('ascii')`
+  blows up (`UnicodeDecodeError`) the moment a byte is ≥ 128. The official vector
+  hid it because that particular result happens to be printable ASCII.
+- **How it got caught — the executable critique:** wrote `test_challenge02.py`
+  first, and 4 of 6 tests went red immediately, all with the same
+  `UnicodeDecodeError` on byte `0x80`. The failing test I'd added on purpose was
+  `test_non_ascii_result_is_fine` (`"00" ^ "80"` should just be `"80"`). Removing
+  the two debug lines turned it green. Nice demonstration of tests surfacing a
+  bug that the official example actively concealed.
+- **Critique → change:**
+  - Deleted the `decode('ascii')` + `print` (the function returns hex; letting a
+    caller interpret the bytes is *their* job).
+  - Added an equal-length guard (`raise ValueError` on mismatch) — `zip` silently
+    truncates otherwise, which is wrong for a *fixed* XOR.
+  - Started a shared `python/cryptolib/` package with a reusable
+    `xor_bytes(a: bytes, b: bytes) -> bytes` core, since every later challenge
+    needs it. Hit (and fixed) two snags: a copy-paste guard bug (`len(a) != len(a)`
+    — always False) and, more instructively, an *import* problem.
+- **The import lesson (packaging, my first real Python packaging setup):** you
+  can only `import cryptolib` if its parent dir (`python/`) is on `sys.path`.
+  Running a script from inside `set1/02_fixed_xor/` only puts *that* folder on the
+  path, so `cryptolib` was invisible → `ModuleNotFoundError`. Fixed it the proper
+  way: a `pyproject.toml` declaring `cryptolib` as a package + `pip install -e .`,
+  which links it into the venv so it imports from anywhere (scripts, tests, REPL)
+  with no `sys.path` hacks. Side note learned: the `set1/NN_slug/` dirs can never
+  be packages — names starting with a digit aren't importable — so solutions stay
+  as directly-run scripts, and only `cryptolib` is a package.
+- **stdlib vs scratch:** decided **no separate scratch version** here, and noted
+  why: XOR *is* already from-scratch — `a ^ b` in a loop is me computing the
+  primitive by hand; there's no library doing the work. The only stdlib
+  conveniences are `bytes.fromhex`/`.hex()` (notation), and I already hand-rolled
+  the analogous thing (base64) in Challenge 1. Per our CLAUDE.md convention,
+  documented the single-version decision instead of writing a pointless file.
+  (Optional-for-fun idea parked: hand-roll hex decode/encode to complete the
+  "notation from scratch" set.)
+- **Tests:** `test_challenge02.py` — official vector, returns-str, XOR identity
+  (`x ^ 0 == x`), bit-flip (`x ^ 0xFF`), self-inverse (`(a ^ b) ^ b == a`, the
+  property every XOR cipher leans on), and the non-ASCII-result guard. 6 passing.
+- **Artifact:** none yet. (XOR bit-mixing could make a nice visual later, maybe
+  when Challenge 5's repeating-key XOR makes it worth it.)
+- **Blog hook:** "the test that failed for the right reason." A one-liner debug
+  print that passed the official example but was a crash waiting to happen, caught
+  the instant I wrote a test with a non-text result. Concrete case for writing
+  tests *and* for the bytes-aren't-text mental model — and it pairs with the
+  Challenge 1 artifact perfectly.
+- **Status:** solved (stdlib, with equal-length guard). No scratch by design.
+  `cryptolib.xor_bytes` extracted for reuse; `stdlib.fixed_xor` could be
+  refactored to call it (optional tidy).
