@@ -1,4 +1,5 @@
 """cryptolib — my hand-rolled crypto primitives, reused across challenges."""
+from collections import namedtuple
 
 
 def xor_bytes(a: bytes, b: bytes) -> bytes:
@@ -37,3 +38,27 @@ def english_score(text: str) -> float:
             score -= 15.0  # control byte: strong wrong-key signal
 
     return score / len(text)  # normalize -> fair across lengths
+
+
+XorResult = namedtuple("XorResult", "key score plaintext")
+
+
+def single_byte_xor_decrypt(data: bytes) -> XorResult:
+    """Best single-byte-XOR decryption of `data`, chosen by english_score.
+
+    Tries all 256 keys and returns the highest-scoring candidate as an
+    ``XorResult(key, score, plaintext)``. Candidates that aren't valid UTF-8 are
+    skipped. If none decode, returns a sentinel with score ``-inf`` so it never
+    wins a comparison (e.g. across lines in Challenge 4).
+    """
+    best = XorResult(key=0, score=float("-inf"), plaintext="")
+    for key in range(256):
+        decoded = xor_bytes(data, bytes([key]) * len(data))  # XOR is reversible
+        try:
+            text = decoded.decode()
+        except UnicodeDecodeError:
+            continue
+        score = english_score(text)
+        if score > best.score:
+            best = XorResult(key, score, text)
+    return best
