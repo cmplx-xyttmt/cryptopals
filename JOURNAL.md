@@ -229,5 +229,16 @@ worth turning into a blog post. Newest entries at the top of each set.
   the space bug by trial and error and moved on; the critique explained the
   *actual* mechanism (equal-length cancellation) and why it'd wobble in Challenge 4.
   Classic case of AI turning "it works ¯\\_(ツ)_/¯" into understanding.
-- **Status:** solved (stdlib, my frequency scorer). Studying the suggested
-  frequency-weighted rewrite before adopting. No scratch planned.
+- **Resolution:** turned out my *intent* was closeness-to-rank-position, but I'd
+  coded closeness of raw **count** to position (different units) — that was the
+  bug. Before rewriting, we banked two `xfail(strict=True)` regression tests that
+  failed on the old scorer; the sharpest was **repetition-invariance** (repeating
+  a text keeps its frequency ranking, so a correct score must be unchanged — the
+  old one jumped 383→429). Replaced it with a frequency-weighted, length-normalised
+  `english_score` (space weighted highest; control bytes penalised), moved to
+  `cryptolib` for reuse. The strict-xfail tests then flipped to XPASS (the "bug is
+  gone" signal), so I removed the markers — they're permanent green guards now.
+- **Status:** solved — stdlib with `cryptolib.english_score`. No scratch (XOR/scoring
+  need no from-scratch treatment). Regression tests green. `single_byte_xor_decrypt`
+  still returns a `(score, text)` tuple typed `-> str` — likely refactored into a
+  reusable `cryptolib.single_byte_xor` for Challenge 4.

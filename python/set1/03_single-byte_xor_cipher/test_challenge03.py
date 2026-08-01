@@ -71,32 +71,23 @@ def test_english_scores_higher_than_control_chars():
     assert character_frequency(english) > character_frequency(controlly)
 
 
-# --- Regression tests capturing the count-vs-position scorer bug ---------------
-# The current character_frequency compares a character's raw COUNT to its expected
-# rank POSITION (different units); the intent was to compare its frequency RANK to
-# that position. These two tests fail because of that, and should pass once the
-# scorer is reworked (frequency-weighted or true rank-based).
-#
-# Marked xfail(strict=True): today they fail, so the suite stays green (they show as
-# "xfailed"). After the fix they'll pass -> strict mode turns that XPASS into a
-# failure, which is the cue to DELETE these markers and keep them as green guards.
-# To watch them actually fail right now:
-#     pytest --runxfail python/set1/03_single-byte_xor_cipher/
+# --- Regression guards for the old count-vs-position scorer bug ----------------
+# The original scorer compared a character's raw COUNT to its expected rank
+# POSITION (different units). These two tests capture that bug; they now pass
+# against the frequency-weighted english_score and guard against a regression.
 CHAR_ORDER = "ETAOINSHRDLCUMWFGYPBVKJXQ "
 
 
-@pytest.mark.xfail(strict=True, reason="count-vs-position bug: nonsense out-scores English")
 def test_english_beats_string_gaming_count_equals_position():
     # Gibberish tuned so each character appears exactly `position` times, which
-    # maximises the buggy score (|count - position| == 0) despite being nonsense.
+    # maximised the OLD score (|count - position| == 0) despite being nonsense.
     gamed = "".join(ch * pos for pos, ch in enumerate(CHAR_ORDER))
     english = "the quick brown fox jumps over the lazy dog and runs away"
     assert character_frequency(english) > character_frequency(gamed)
 
 
-@pytest.mark.xfail(strict=True, reason="count-vs-position bug: score should depend on rank, not raw counts")
 def test_score_is_invariant_to_repetition():
-    # Repeating a text leaves its frequency RANK order identical, so a correct
-    # position/rank-based score must be unchanged. A raw-count score is not.
+    # Repeating a text leaves its frequency order identical, so a length-normalised
+    # score must be unchanged. (The old raw-count score jumped 383 -> 429.)
     text = "the quick brown fox jumps over the lazy dog"
     assert character_frequency(text) == pytest.approx(character_frequency(text * 3))
