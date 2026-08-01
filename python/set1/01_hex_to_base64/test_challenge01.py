@@ -3,15 +3,17 @@
 Run from the repo root:  pytest
 Or just this file:        pytest python/set1/01_hex_to_base64/
 
-pytest puts this file's directory on sys.path (default "prepend" import mode),
-so `import stdlib` finds the sibling solution module.
+Solutions are loaded via load_solution() under a folder-unique name, so every
+challenge's `stdlib.py` can coexist in a full test run (see challenge_utils).
 """
 import base64
 
 import pytest
 
-# from stdlib import convert_hex_to_base64
-from scratch import convert_hex_to_base64
+from challenge_utils import load_solution
+
+# Test the from-scratch base64 encoder. Swap "scratch" -> "stdlib" to test that one.
+convert_hex_to_base64 = load_solution(__file__, "scratch").convert_hex_to_base64
 
 def test_official_challenge_vector():
     """The exact input/output given on cryptopals.com."""

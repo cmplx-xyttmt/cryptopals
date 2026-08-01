@@ -81,6 +81,27 @@ go/set<N>/<NN>_<slug>/   # same shape, once we move to Go
 - Each solution file should be runnable directly (`python .../stdlib.py`) and
   **assert its own expected answer** so a run is self-checking.
 
+## Tests
+
+- Per-challenge tests live beside the solution as `test_challengeNN.py`; shared
+  `cryptolib` helpers are tested in `python/cryptolib/test_cryptolib.py`. `pytest`
+  config (paths, `pythonpath`) is in `pyproject.toml`; after cloning run
+  `pip install -e .`.
+- **Importing the solution under test:** do NOT `from stdlib import ...`. Every
+  challenge has a file named `stdlib.py`, so a bare import collides across
+  challenges in a full run (one `sys.modules["stdlib"]` slot). Instead:
+  ```python
+  from challenge_utils import load_solution
+  _sol = load_solution(__file__, "stdlib")   # or "scratch"
+  my_fn = _sol.my_fn
+  ```
+  `challenge_utils.load_solution` (in `python/`) loads the sibling under a
+  folder-unique name so all challenges coexist.
+- Run one challenge: `pytest python/set1/NN_slug/`; by name: `pytest -k official`.
+- Prefer a **round-trip / property** test over only the official vector — e.g.
+  encrypt a corpus under many keys and assert the solver recovers each. It
+  exercises the logic far harder (Challenge 3's corpus test is the model).
+
 ## `JOURNAL.md` — the running document (important)
 
 This is the memory of the project and the seed of the blog post. **After each

@@ -187,3 +187,47 @@ worth turning into a blog post. Newest entries at the top of each set.
 - **Status:** solved (stdlib, with equal-length guard). No scratch by design.
   `cryptolib.xor_bytes` extracted for reuse; `stdlib.fixed_xor` could be
   refactored to call it (optional tidy).
+
+### Challenge 3 — Single-byte XOR cipher · [link](https://cryptopals.com/sets/1/challenges/3)
+
+- **Concept it teaches:** Breaking a single-byte XOR "cipher" by brute-forcing all
+  256 keys and scoring each candidate plaintext for how English-like it is. First
+  taste of frequency analysis — the idea that structure in the plaintext leaks
+  through, so you don't need the key, you need a way to *recognise* English.
+- **First approach (mine):** brute force all 256 keys with `xor_bytes`, decode each
+  to text, and score it. Decrypted the message to **"Cooking MC's like a pound of
+  bacon"** — correct!
+  - The hardest part was the **character frequency scoring**, and I'm still not
+    sure I did it the best way. I looked up the most common English letter order
+    (`ETAOIN…`) and scored a candidate by how close each character's *count* is to
+    its *position* in that order, summing a reward that's larger the smaller the
+    difference, and subtracting a penalty for expected characters that are missing.
+  - **Thing I had to watch out for: spaces vs other characters.** The string
+    `cOOKING\x00mc\x07S\x00LIKE\x00A\x00POUND\x00OF\x00BACON` scored *very* high — in
+    fact it was the **winning** candidate — until I added a space to the end of
+    `character_order`. That fixed it, but it felt like a patch, not a principle.
+- **Open question I want to resolve (parked for study):** Claude's critique says my
+  scorer works only by luck — it compares a *count* to a *rank index* (different
+  units), and only discriminates correctly because all 256 candidates in one
+  decrypt call share the same length, so the length bias cancels. The suggested
+  fix is a frequency-weighted, length-normalised score that (a) puts **space at the
+  top** (it's the single most common character in English, ~18%, which is exactly
+  why my control-char string could win) and (b) explicitly penalises non-printable
+  bytes. Length-normalisation apparently matters for Challenge 4, where you compare
+  scores *across* different ciphertext lines. → I'll study this before applying.
+- **Tests:** `test_challenge03.py` — round-trips a corpus of 12 English sentences
+  through 6 keys each (encrypt → solve → must recover the original), plus the
+  official vector and two scorer-discrimination tests (English must out-score
+  random bytes and the exact `\x00`/`\x07` control-char string that fooled me).
+  75 passing — so the scorer *does* work on this corpus, even if it's fragile.
+- **Interface smells noted (from critique):** `single_byte_xor_decrypt` is typed
+  `-> str` but returns a `(score, text)` tuple, and has a leftover `print(text)`
+  (256 lines/call — same debug-print pattern as Challenge 2). Challenge 4 will want
+  the *key* + *score* too, so a reusable `single_byte_xor(data: bytes) -> XorResult`
+  in `cryptolib` is the likely refactor.
+- **Blog hook:** "the scorer that worked for a reason I didn't expect." I patched
+  the space bug by trial and error and moved on; the critique explained the
+  *actual* mechanism (equal-length cancellation) and why it'd wobble in Challenge 4.
+  Classic case of AI turning "it works ¯\\_(ツ)_/¯" into understanding.
+- **Status:** solved (stdlib, my frequency scorer). Studying the suggested
+  frequency-weighted rewrite before adopting. No scratch planned.

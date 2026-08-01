@@ -5,7 +5,9 @@ Or just this file:        pytest python/set1/02_fixed_xor/
 """
 import pytest
 
-from stdlib import fixed_xor
+from challenge_utils import load_solution
+
+fixed_xor = load_solution(__file__, "stdlib").fixed_xor
 
 
 def test_official_challenge_vector():
