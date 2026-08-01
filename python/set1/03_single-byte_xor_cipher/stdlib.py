@@ -1,21 +1,28 @@
 from cryptolib import xor_bytes
 from collections import Counter
 
+# Rough relative frequencies of letters + space in English text (%)
+ENGLISH_FREQ = {
+    ' ': 18.0, 'e': 10.2, 't': 7.5, 'a': 6.5, 'o': 6.1, 'i': 5.7, 'n': 5.5,
+    'h': 4.9, 's': 5.1, 'r': 4.8, 'd': 3.5, 'l': 3.3, 'c': 2.3, 'u': 2.3,
+    'm': 2.0, 'w': 1.6, 'f': 1.8, 'g': 1.6, 'y': 1.6, 'p': 1.6, 'b': 1.3,
+    'v': 0.8, 'k': 0.6, 'j': 0.1, 'x': 0.1, 'q': 0.1, 'z': 0.1
+}
 
-def character_frequency(string: str) -> int:
-    character_order = "ETAOINSHRDLCUMWFGYPBVKJXQ "
-    positions = dict()
-    for i, char in enumerate(character_order):
-        positions[char] = i
-    counts = Counter(string.upper())
-    score = 0
-    for char in character_order:
-        if char in counts:
-            position_diff = abs(counts[char] - positions[char])
-            score += len(character_order) - position_diff
+
+def english_score(text: str) -> float:
+    if not text:
+        return 0.0
+    score = 0.0
+    for ch in text.lower():
+        if ch in ENGLISH_FREQ:
+            score += ENGLISH_FREQ[ch]  # reward frequent letters + space
+        elif ch.isprintable():
+            pass  # punctuation/digits neutral
         else:
-            score -= len(character_order)
-    return score
+            score -= 15.0  # control byte: strong wrong-key signal
+
+    return score / len(text)  # normalize -> fair across lengths
 
 
 def single_byte_xor_decrypt(hex_encoded: str) -> str:
@@ -27,8 +34,7 @@ def single_byte_xor_decrypt(hex_encoded: str) -> str:
         decoded = xor_bytes(encoded_bytes, padded_key)  # because XOR is reversible.
         try:
             text = decoded.decode()
-            possible_messages.append((character_frequency(text), text))
-            print(text)
+            possible_messages.append((english_score(text), text))
         except Exception as _:
             continue
     possible_messages.sort(reverse=True)

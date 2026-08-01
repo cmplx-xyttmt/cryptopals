@@ -13,7 +13,7 @@ from challenge_utils import load_solution
 
 _sol = load_solution(__file__, "stdlib")
 single_byte_xor_decrypt = _sol.single_byte_xor_decrypt
-character_frequency = _sol.character_frequency
+character_frequency = _sol.english_score
 
 # A spread of plain-ASCII English sentences: varied length, punctuation, case.
 CORPUS = [
