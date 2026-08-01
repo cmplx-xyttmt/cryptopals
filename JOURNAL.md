@@ -242,3 +242,45 @@ worth turning into a blog post. Newest entries at the top of each set.
   need no from-scratch treatment). Regression tests green. `single_byte_xor_decrypt`
   still returns a `(score, text)` tuple typed `-> str` — likely refactored into a
   reusable `cryptolib.single_byte_xor` for Challenge 4.
+
+### Challenge 4 — Detect single-character XOR · [link](https://cryptopals.com/sets/1/challenges/4)
+
+- **Concept it teaches:** one of 60 hex lines is single-byte-XOR'd English; find
+  it. It's really Challenge 3 applied to every line, then picking the global
+  winner — which only works if scores are comparable *across* lines. This is
+  where Challenge 3's **length-normalised** `english_score` pays off: without
+  normalisation, comparing best-scores between different lines would be unfair.
+- **My approach:** for each line, run `single_byte_xor_decrypt` (now in
+  `cryptolib`, moved as suggested and changed to take `bytes`), collect the best
+  result per line, and take the max. Answer: **"Now that the party is jumping\n"**
+  (key 53 / `'5'`). Correct.
+- **Things I learned / got caught on:**
+  - **`namedtuple` finally clicked.** I'd defined `XorResult = namedtuple("XorResult",
+    "key score plaintext")` and annotated `-> XorResult`, but hadn't actually
+    wired it up — the function still returned a bare `(score, text)` tuple and
+    threw the key away. Completing it to return `XorResult(key, score, plaintext)`
+    is what made namedtuple make sense to me: it's a tuple with *named* fields.
+  - **The sort-by-key trap (subtle, important).** My detection did
+    `scores.sort(reverse=True); return scores[0]`. That worked only while the
+    return was `(score, text)` (sorts by score). The moment it became
+    `XorResult(key, score, plaintext)`, a bare sort compares **field 0 = key**
+    first — so it'd silently return the highest-*key* result, not the best score.
+    Fix: `max(candidates, key=lambda r: r.score)`. Lesson: when sorting/maxing
+    namedtuples, be explicit with `key=` unless field order *is* your sort order.
+  - **Hardcoded `open("4.txt")`** only worked when cwd was the challenge folder —
+    which is why I couldn't run it from the repo root or under pytest. Fixed with a
+    path anchored on the repo root, and moved the data file to `data/04.txt` to
+    match the CLAUDE.md convention (inputs committed under `data/`).
+  - Split into a pure `detect_single_char_xor(hex_lines)` + a `__main__` that reads
+    the file, so it's testable with synthetic data, not just the bundled file.
+- **Tests:** `test_challenge04.py` — the real-file answer, a *planted-line-among-
+  decoys* test (bury one XOR'd English sentence in gibberish and detect it), and
+  blank-line handling. The reusable solver + scorer tests moved to
+  `test_cryptolib.py` (round-trip recovering plaintext **and** key, empty and
+  never-decodes sentinel cases); `test_challenge03.py` was deleted as redundant.
+- **Blog hook:** the namedtuple sort-by-key gotcha — code that's correct with a
+  plain tuple becomes silently wrong when you "upgrade" to a namedtuple, because
+  tuple ordering follows field order. A tiny, real bug that the AI flagged *before*
+  it could bite. Pairs with "I finally understood namedtuple."
+- **Status:** solved (stdlib). Reusable `single_byte_xor_decrypt` now returns a
+  proper `XorResult`. No scratch planned.
