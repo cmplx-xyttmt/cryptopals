@@ -284,3 +284,40 @@ worth turning into a blog post. Newest entries at the top of each set.
   it could bite. Pairs with "I finally understood namedtuple."
 - **Status:** solved (stdlib). Reusable `single_byte_xor_decrypt` now returns a
   proper `XorResult`. No scratch planned.
+
+### Challenge 5 — Implement repeating-key XOR · [link](https://cryptopals.com/sets/1/challenges/5)
+
+- **Concept it teaches:** repeating-key (Vigenère-style) XOR — cycle a short key
+  over the plaintext, XOR byte by byte. Sets up Challenge 6 (breaking it).
+- **My initial solution:** felt fairly straightforward. I took `text` and `key`
+  as strings, encoded both, and XOR'd each text byte with `key_bytes[idx % 3]`,
+  returning hex. It matched the official "ICE" vector, so I thought it was done.
+- **The bug (an easy one to make):** I'd hardcoded `% 3` — which is just the
+  length of "ICE" leaking into the code. **Claude caught this**, and pointed out
+  it's the same family of mistake as earlier ones (the `character_order` space,
+  the `open("4.txt")` path): it works for the single example but breaks the
+  instant the input changes. Claude demonstrated it live — a length-2 key
+  *crashes* with `IndexError`, and a length-4 key runs but is *silently wrong*
+  (wraps at 3, ignores the 4th key byte). The fix is `% len(key)`.
+- **Claude's further advice (the "learning partner" bit, not just a fix):**
+  - Since Challenge 6 needs to XOR ciphertext *bytes* with a repeating key to
+    decrypt, make the core `bytes`-in/`bytes`-out and put it in `cryptolib`. I've
+    already switched the signature to `bytes -> bytes` for that reason.
+  - Repeating-key XOR is **symmetric** (same op encrypts and decrypts) — so the
+    one function also decrypts, which is exactly what Challenge 6 will use.
+  - `itertools.cycle(key)` expresses "repeat the key forever" directly and is
+    *immune to the length bug by construction* (no manual modulus to get wrong).
+    Planned refactor: `bytes(b ^ k for b, k in zip(data, cycle(key)))`.
+- **Tests:** `test_challenge05.py` — official ICE vector, a **differential** test
+  against an independent `cycle`-based oracle across key lengths 1–5 (this is what
+  the `% 3` bug was really about), single-char key == single-byte XOR, key longer
+  than text, empty input, and a **round-trip symmetry** test (encrypt twice ==
+  original) that only became expressible once the interface was `bytes`. 20 tests.
+- **Plan:** commit this (fixed-with-modulus, in-place) version first, then refactor
+  into `cryptolib.repeating_key_xor` using `cycle`, as its own commit.
+- **Blog hook:** "hardcoding the example." Three challenges in a row I baked a
+  property of the *one given example* into the code (`ICE`→`% 3` here). Each time
+  Claude caught it the same way — by running the code on inputs *off* the example.
+  A concrete lesson in how an AI critic tests differently than I instinctively do.
+- **Status:** solved (stdlib, `bytes`-based, modulus). Refactor to
+  `cryptolib` + `cycle` pending (separate commit). No scratch planned.

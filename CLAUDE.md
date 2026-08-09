@@ -111,7 +111,11 @@ template in `JOURNAL.md`. Each entry captures:
 - The challenge and the crypto concept it teaches.
 - Isaac's **first approach** and any **wrong turns / bugs** — these are gold for
   the blog; do not sanitize them away. "What I got wrong and why" is the story.
-- The critique and what changed as a result.
+- The critique and what changed as a result. **Attribute advice explicitly** —
+  name who suggested an improvement ("Claude caught…", "Gemini suggested…"). A
+  core goal of this project is exploring AI as a *learning partner*, so the
+  journal must make visible which insights came from the AI critic vs Isaac; the
+  "which critic caught what" thread is itself blog material.
 - `stdlib` vs `scratch` reflections — what each version taught.
 - Any interactive artifact built, and a one-line "blog hook" if there's a
   narrative worth telling.
