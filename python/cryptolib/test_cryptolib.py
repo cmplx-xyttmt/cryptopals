@@ -6,9 +6,17 @@ trustworthy no matter which challenge leans on it later.
 Run from the repo root:  pytest
 Or just this module:      pytest python/cryptolib/
 """
+from itertools import cycle
+
 import pytest
 
-from cryptolib import xor_bytes, english_score, single_byte_xor_decrypt, XorResult
+from cryptolib import (
+    xor_bytes,
+    english_score,
+    single_byte_xor_decrypt,
+    repeating_key_xor,
+    XorResult,
+)
 
 
 class TestXorBytes:
@@ -135,3 +143,42 @@ class TestSingleByteXorDecrypt:
         result = single_byte_xor_decrypt(bytes([0x00, 0x80]))
         assert result.score == float("-inf")
         assert result.plaintext == ""
+
+
+def _rkx_reference(data: bytes, key: bytes) -> bytes:
+    """Independent, obviously-correct repeating-key XOR — a differential oracle."""
+    return bytes(d ^ k for d, k in zip(data, cycle(key)))
+
+
+class TestRepeatingKeyXor:
+    def test_official_ice_vector(self):
+        text = (
+            "Burning 'em, if you ain't quick and nimble\n"
+            "I go crazy when I hear a cymbal"
+        ).encode()
+        expected = bytes.fromhex(
+            "0b3637272a2b2e63622c2e69692a23693a2a3c6324202d623d63343c2a262263"
+            "24272765272a282b2f20430a652e2c652a3124333a653e2b2027630c692b2028"
+            "3165286326302e27282f"
+        )
+        assert repeating_key_xor(text, b"ICE") == expected
+
+    @pytest.mark.parametrize("key", [b"A", b"AB", b"ICE", b"KEY!", b"abcde"])
+    @pytest.mark.parametrize("data", [
+        b"hello world",
+        b"The quick brown fox jumps over the lazy dog",
+        b"attack at dawn, then retreat by noon",
+    ])
+    def test_matches_reference_for_various_key_lengths(self, data, key):
+        # Guards the key-length correctness the old `% 3` hardcode got wrong.
+        assert repeating_key_xor(data, key) == _rkx_reference(data, key)
+
+    def test_single_char_key_is_plain_single_byte_xor(self):
+        data, k = b"hello", 0x58
+        assert repeating_key_xor(data, bytes([k])) == bytes(b ^ k for b in data)
+
+    def test_key_longer_than_text(self):
+        assert repeating_key_xor(b"hi", b"LONGKEY") == _rkx_reference(b"hi", b"LONGKEY")
+
+    def test_empty_text(self):
+        assert repeating_key_xor(b"", b"ICE") == b""

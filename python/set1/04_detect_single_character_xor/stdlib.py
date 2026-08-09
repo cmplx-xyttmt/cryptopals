@@ -7,7 +7,7 @@ from cryptolib import single_byte_xor_decrypt, XorResult
 DATA_FILE = Path(__file__).resolve().parents[3] / "data" / "04.txt"
 
 
-def detect_single_char_xor(hex_lines) -> XorResult:
+def detect_single_char_xor(hex_lines: list[str]) -> XorResult:
     """Of many hex lines, find the one encrypted with single-byte XOR.
 
     Score every line's best single-byte decryption and return the global winner.

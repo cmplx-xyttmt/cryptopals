@@ -1,10 +1,4 @@
-def repeating_key_xor(text: bytes, key: bytes) -> bytes:
-    encoded = []
-    for idx, tbyte in enumerate(text):
-        encoded.append(tbyte ^ key[idx % len(key)])
-    encoded = bytes(encoded)
-    return encoded
-
+from cryptolib import repeating_key_xor
 
 if __name__ == '__main__':
     text = """Burning 'em, if you ain't quick and nimble

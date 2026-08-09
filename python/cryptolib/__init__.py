@@ -1,5 +1,6 @@
 """cryptolib — my hand-rolled crypto primitives, reused across challenges."""
 from collections import namedtuple
+from itertools import cycle
 
 
 def xor_bytes(a: bytes, b: bytes) -> bytes:
@@ -14,6 +15,15 @@ def xor_bytes(a: bytes, b: bytes) -> bytes:
     if len(a) != len(b):
         raise ValueError("xor_bytes requires equal-length buffers")
     return bytes(x ^ y for x, y in zip(a, b))
+
+
+def repeating_key_xor(data: bytes, key: bytes) -> bytes:
+    """XOR `data` against `key` repeated cyclically (Vigenère-style XOR).
+
+    `cycle(key)` repeats the key for any length (no modulus to get wrong) and
+    `zip` stops at `len(data)`.
+    """
+    return bytes(b ^ k for b, k in zip(data, cycle(key)))
 
 
 # Rough relative frequencies of letters + space in English text (%)
