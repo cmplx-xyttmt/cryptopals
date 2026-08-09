@@ -349,4 +349,48 @@ worth turning into a blog post. Newest entries at the top of each set.
   experiments led me to the insight instead of being handed it. (Contrast with the
   earlier session where Claude *over*-shared about this challenge; we added a no-spoiler
   rule to CLAUDE.md after that. Both are useful blog material.)
-- **Status:** in progress — understand keysize detection; now implementing the full break.
+- **Debugging log (first attempt, not yet correct):** two symptoms while debugging:
+  (1) the keysize scores for the top ~20 candidates were all bunched together
+  (~2.70–2.79) with no clear winner, and they looked like multiples of 29 — so no
+  confident keysize; (2) the recovered "keys" came out as the same byte repeated
+  (a run of T's), and none decrypted to anything coherent. Mid-writeup I remembered
+  the artifact's *blocks-averaged* lesson (more block pairs → clearer signal) and
+  went to try increasing the number of blocks averaged before asking for a hint.
+  Claude reviewed and nudged (without giving it away) that these are *two separate*
+  bugs — the averaging idea addresses symptom (1), but symptom (2) is a different
+  error in how the key is built and won't be fixed by more averaging.
+- **The two bugs that cracked it:**
+  1. **Transposition off-by-start.** My inner loop ran `for j in range(0, len, K)`
+     and appended `ciphertext[j]` — with no `i` offset, so *every* block collected
+     the same bytes (positions 0, K, 2K…). Identical blocks → `single_byte_xor_decrypt`
+     returned the same byte for each → the key came out as one letter repeated
+     (a run of T's). Claude didn't tell me; it nudged me to print the indices each
+     block collected and compare block 0 vs block 1 — the fix was `range(i, len, K)`
+     (start at `i`).
+  2. **Keysize clustering.** I'd scanned a huge candidate range, so 29 and its
+     multiples all bunched near ~2.7 with no clear winner. Restricting to 2..40
+     made **29** the clear winner, even with only a few blocks averaged.
+- **Answer:** keysize **29**, key **`Terminator X: Bring the noise`**, plaintext is
+  the "Play That Funky Music" lyrics ("I'm back and I'm ringin' the bell …").
+- **The multiples question (worked out myself):** multiples of the true keysize
+  also score well because a repeated key is an equally-valid key — `key` and
+  `keykey` produce the same keystream. Bit-wise: bytes 2K apart still share a key
+  byte (same `p mod K`), so the key still cancels and you're still comparing
+  English⊕English. My synthetic test literally shows this: a 5-byte key `MOON!`
+  gets detected as keysize **15** and recovered as `MOON!MOON!MOON!`, which still
+  decrypts perfectly.
+- **Cleanups (Claude suggested, I applied):** transpose with a slice `ct[i::K]`
+  instead of hand-building blocks; `min(range(2, MAX_KEY_SIZE+1), key=…)` instead of
+  sort-then-index; named the `40` bound; `.key` on the `XorResult`. Moved
+  `hamming_distance` into `cryptolib` (with a comment explaining the
+  `int.from_bytes(...).bit_count()` whole-buffer popcount trick).
+- **Tests:** `TestHammingDistance` in `test_cryptolib` (the 37 vector, symmetry,
+  leading-zero-byte counting, unequal-length raises); `test_challenge06.py` breaks
+  the real file (asserts key + first line) and does a synthetic blind break with a
+  round-trip that also demonstrates the keysize-multiple effect.
+- **Blog hook:** "the run of T's." A one-character transposition bug (start at `i`,
+  not `0`) with a very specific symptom, found by *printing indices* rather than
+  being handed the fix — plus the multiples insight reasoned out from first
+  principles. The debug-with-the-AI-but-don't-get-spoon-fed loop, concretely.
+- **Status:** solved (stdlib). No scratch — it's byte/logic work reusing cryptolib
+  primitives. Artifact extension (visualise the full break) still to come.

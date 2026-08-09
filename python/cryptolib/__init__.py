@@ -17,6 +17,16 @@ def xor_bytes(a: bytes, b: bytes) -> bytes:
     return bytes(x ^ y for x, y in zip(a, b))
 
 
+def hamming_distance(a: bytes, b: bytes) -> int:
+    """Number of differing bits between two equal-length byte buffers.
+
+    XOR sets a 1 bit exactly where the inputs differ, so the Hamming distance is
+    the population count (number of 1 bits) of a ^ b. We treat the whole XOR
+    buffer as one big integer and popcount it in a single call: int.bit_count().
+    """
+    return int.from_bytes(xor_bytes(a, b), byteorder="big").bit_count()
+
+
 def repeating_key_xor(data: bytes, key: bytes) -> bytes:
     """XOR `data` against `key` repeated cyclically (Vigenère-style XOR).
 

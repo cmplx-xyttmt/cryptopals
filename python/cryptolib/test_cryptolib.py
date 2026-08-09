@@ -12,6 +12,7 @@ import pytest
 
 from cryptolib import (
     xor_bytes,
+    hamming_distance,
     english_score,
     single_byte_xor_decrypt,
     repeating_key_xor,
@@ -182,3 +183,29 @@ class TestRepeatingKeyXor:
 
     def test_empty_text(self):
         assert repeating_key_xor(b"", b"ICE") == b""
+
+
+class TestHammingDistance:
+    def test_official_vector(self):
+        # The Challenge 6 sanity check.
+        assert hamming_distance(b"this is a test", b"wokka wokka!!!") == 37
+
+    def test_identical_is_zero(self):
+        assert hamming_distance(b"same bytes", b"same bytes") == 0
+
+    def test_single_bit_difference(self):
+        # 0x00 vs 0x01 differ in exactly one bit.
+        assert hamming_distance(bytes([0x00]), bytes([0x01])) == 1
+
+    def test_counts_all_bits_including_leading_zero_bytes(self):
+        # int.from_bytes drops leading zero bytes, but popcount is unaffected:
+        # 0x00 ^ 0x00 = 0 bits, 0x00 ^ 0xFF = 8 bits.
+        assert hamming_distance(bytes([0x00, 0x00]), bytes([0x00, 0xFF])) == 8
+
+    def test_is_symmetric(self):
+        a, b = b"hello", b"world"
+        assert hamming_distance(a, b) == hamming_distance(b, a)
+
+    def test_unequal_lengths_raise(self):
+        with pytest.raises(ValueError):
+            hamming_distance(b"abc", b"ab")
