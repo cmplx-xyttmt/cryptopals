@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Repeating-key XOR: finding the key length</title>
+<style>
+  :root {
+    --cream: #f7f3e9; --surface: #fffdf7; --surface-border: #e4dcc7;
+    --forest: #1f3d2b; --pine: #2f5a3d; --emerald: #2e7d52; --moss: #6b7a5a;
+    --amber: #c8862a; --clay: #b1552f; --ink: #16261c; --muted: #6a7568;
+    --code-bg: #14251b; --code-text: #e8f0e4; --radius: 16px;
+    --font-serif: Georgia, "Times New Roman", serif;
+    --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --cream:#10180f; --surface:#17231a; --surface-border:#2b3d2f; --forest:#cfe3d1;
+      --pine:#a9d0b3; --emerald:#6fd39a; --ink:#e6f0e6; --muted:#92a290;
+      --code-bg:#0b130d; --code-text:#dcead9;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:2rem 1rem 4rem; background:var(--cream); color:var(--ink);
+         font-family:var(--font-serif); line-height:1.6; }
+  .wrap { max-width: 820px; margin: 0 auto; }
+  h1 { font-size:1.8rem; color:var(--forest); margin:0 0 .3rem; }
+  h2 { font-size:1.25rem; color:var(--pine); margin:2.2rem 0 .5rem;
+       border-bottom:2px solid var(--surface-border); padding-bottom:.3rem; }
+  p { margin:.5rem 0; } .lede { color:var(--muted); font-size:1.05rem; }
+  code, .mono { font-family:var(--font-mono); }
+  .card { background:var(--surface); border:1px solid var(--surface-border);
+          border-radius:var(--radius); padding:1.1rem 1.2rem; margin:1rem 0;
+          box-shadow:0 2px 10px rgba(31,61,43,.06); }
+  label { font-family:var(--font-sans); font-size:.8rem; text-transform:uppercase;
+          letter-spacing:.05em; color:var(--moss); display:block; margin-bottom:.35rem; }
+  input[type=text], textarea {
+    width:100%; font-family:var(--font-mono); font-size:.95rem; padding:.55rem .7rem;
+    border:1px solid var(--surface-border); border-radius:10px; background:var(--cream);
+    color:var(--ink); }
+  textarea { min-height: 5.5rem; resize: vertical; line-height:1.4; }
+  input:focus, textarea:focus { outline:2px solid var(--emerald); border-color:var(--emerald); }
+  .row { display:flex; gap:1rem; flex-wrap:wrap; align-items:flex-end; }
+  .row > div { flex:1 1 auto; }
+  .num { font-family:var(--font-sans); }
+  .num b { color:var(--emerald); font-size:1.1rem; }
+  .quest { border-left:4px solid var(--amber); background:rgba(200,134,42,.08);
+           padding:.6rem .9rem; border-radius:8px; margin:.9rem 0; font-size:.97rem; }
+  .quest strong { color:var(--clay); }
+  /* bit grids -- each byte is a small block: row A (top) over row B (bottom) */
+  .bits { display:flex; flex-wrap:wrap; gap:7px; margin:.4rem 0 .6rem; }
+  .byteblk { display:inline-flex; flex-direction:column; align-items:center; }
+  .byterow { display:flex; gap:1px; }
+  .byterow + .byterow { margin-top:2px; }
+  .bit { width:1rem; height:1rem; display:flex; align-items:center; justify-content:center;
+         font-family:var(--font-mono); font-size:.7rem; border-radius:2px;
+         background:#e7eede; color:#3a4a38; }
+  .bit.diff { background:var(--clay); color:#fff; font-weight:bold; }
+  .bytelabel { font-family:var(--font-mono); font-size:.72rem; color:var(--muted);
+               margin-top:3px; min-height:1em; white-space:pre; }
+  .bitlegend { font-family:var(--font-sans); font-size:.78rem; color:var(--moss); margin:.2rem 0 .3rem; }
+  /* bar chart */
+  .chart { display:flex; align-items:flex-end; gap:3px; height:180px; margin:.6rem 0 .2rem;
+           border-bottom:2px solid var(--surface-border); padding-top:4px; overflow-x:auto; }
+  .bar { flex:1 0 14px; background:var(--moss); border-radius:3px 3px 0 0; position:relative;
+         cursor:pointer; transition:background .1s; min-width:14px; }
+  .bar:hover { background:var(--pine); outline:2px solid var(--pine); }
+  .bar.min { background:var(--emerald); }
+  .bar.sel { outline:3px solid var(--amber); }
+  .xaxis { display:flex; gap:3px; font-family:var(--font-mono); font-size:.62rem;
+           color:var(--muted); overflow-x:auto; }
+  .xaxis span { flex:1 0 14px; min-width:14px; text-align:center; }
+  .slider { width:100%; }
+  .pill { display:inline-block; font-family:var(--font-mono); font-size:.8rem;
+          background:var(--cream); border:1px solid var(--surface-border); color:var(--pine);
+          border-radius:999px; padding:.15rem .55rem; }
+  .foot { color:var(--muted); font-size:.85rem; margin-top:2.5rem; text-align:center; }
+  .hint { color:var(--muted); font-size:.85rem; }
+  /* spoiler reveal */
+  details.reveal { background:var(--surface); border:1px solid var(--surface-border);
+                   border-radius:var(--radius); padding:.2rem 1.1rem; margin:1rem 0; }
+  details.reveal > summary { cursor:pointer; font-family:var(--font-sans); font-weight:bold;
+                             color:var(--pine); padding:.7rem 0; list-style:revert; }
+  .revealbody { padding-bottom:.8rem; }
+  .revealbody code { font-family:var(--font-mono); }
+  pre.eq { background:var(--code-bg); color:var(--code-text); padding:.8rem 1rem;
+           border-radius:8px; overflow-x:auto; font-family:var(--font-mono);
+           font-size:.85rem; line-height:1.55; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Repeating-key XOR &mdash; finding the key length</h1>
+  <p class="lede">The first step in breaking repeating-key (Vigen&egrave;re) XOR is guessing
+  the key's <em>length</em>. The claimed tool for that is the <strong>Hamming distance</strong>
+  (the number of differing bits between two byte strings). This page lets you
+  experiment with <em>why</em> that works &mdash; poke at it and see if you can explain the
+  pattern before reading any explanation.</p>
+
+  <!-- 1. Hamming playground -->
+  <h2>1. What Hamming distance <em>is</em></h2>
+  <p>Two strings, compared bit by bit. Each byte is a little block: <strong>top row =
+  String A, bottom row = String B</strong>, with the byte's character shown beneath.
+  Differing bits are highlighted. (The Challenge 6 sanity check is pre-filled &mdash; it
+  should read 37.)</p>
+  <div class="card">
+    <div class="row">
+      <div><label for="h1">String A</label><input id="h1" type="text" value="this is a test"></div>
+      <div><label for="h2i">String B</label><input id="h2i" type="text" value="wokka wokka!!!"></div>
+    </div>
+    <div class="bitlegend" style="margin-top:.8rem">Top row = A &nbsp;/&nbsp; bottom row = B &nbsp;/&nbsp; label = each byte's character:</div>
+    <div id="hamBits" class="bits"></div>
+    <div class="num">Hamming distance: <b id="hamDist">&ndash;</b>
+      <span class="hint">&nbsp; ( = <span id="hamNorm">&ndash;</span> bits per byte)</span></div>
+  </div>
+
+  <!-- 2. Keysize detector -->
+  <h2>2. Does it reveal the key length?</h2>
+  <p>Encrypt some English text with a key of your choice. Then, for each candidate
+  key length K, we chop the ciphertext into K-byte blocks and measure the average
+  Hamming distance between blocks &mdash; <em>normalised</em> by dividing by K (so long and
+  short K's compare fairly). Each bar is one candidate K.</p>
+  <div class="card">
+    <div><label for="pt">Plaintext (English)</label><textarea id="pt"></textarea></div>
+    <div class="row" style="margin-top:.7rem">
+      <div style="flex:0 1 220px"><label for="key">Key (its length is the secret)</label>
+        <input id="key" type="text" value="SPHINX"></div>
+      <div style="flex:0 1 260px">
+        <label for="blocks">Blocks averaged: <span id="blocksVal">10</span></label>
+        <input id="blocks" class="slider" type="range" min="2" max="25" value="10">
+      </div>
+    </div>
+    <div class="hint" style="margin-top:.5rem">Ciphertext length: <span id="ctlen">&ndash;</span> bytes.
+      <strong>Taller = lower normalised distance = more likely the key length.</strong>
+      The best candidate is highlighted <span style="color:var(--emerald)">green</span>.
+      Click any bar to inspect it below.</div>
+
+    <div id="chart" class="chart"></div>
+    <div id="xaxis" class="xaxis"></div>
+
+    <div class="quest">
+      <strong>Experiment 1:</strong> change the key to different lengths (try 4, 7, 11 letters).
+      Where does the green (best) bar move? Do you notice anything about <em>multiples</em> of it?
+    </div>
+    <div class="quest">
+      <strong>Experiment 2:</strong> drag "blocks averaged" down to 2, then back up. Is the best
+      bar trustworthy with only 2 blocks? What happens as you average more?
+    </div>
+  </div>
+
+  <!-- 3. Look inside a keysize -->
+  <h2>3. Look inside &mdash; bit by bit</h2>
+  <p>The first two K-byte blocks of the ciphertext for the keysize you clicked above
+  (<span class="pill" id="selK">K = ?</span>). <strong>Top row = block 0, bottom row =
+  block 1</strong>; the label is the byte's position within the block. So the two bits in
+  each column are the bytes that sit <em>K apart</em> in the ciphertext.</p>
+  <div class="card">
+    <div class="bitlegend">Block 0 vs Block 1 &nbsp;&middot;&nbsp; normalised Hamming: <b id="selNorm" class="num">&ndash;</b></div>
+    <div id="selBits" class="bits"></div>
+    <div class="quest">
+      <strong>The real question:</strong> click the <em>true</em> keysize (your key's length),
+      then click a <em>wrong</em> one. When are there fewer differing bits? Bytes in the same
+      column were XOR'd with... what? And two English letters XOR'd together tend to differ in
+      how many bits, versus two <em>random</em> bytes? See if that cracks the "why".
+    </div>
+  </div>
+
+  <h2>The answer</h2>
+  <details class="reveal">
+    <summary>Reveal: why Hamming distance finds the key length (open only after you've tried)</summary>
+    <div class="revealbody">
+      <p>At the <strong>correct</strong> keysize, the two bytes in a column were encrypted
+      with the <strong>same</strong> key byte. XOR-ing them cancels the key:</p>
+      <pre class="eq">c1 &oplus; c2 = (p1 &oplus; k) &oplus; (p2 &oplus; k)
+        = p1 &oplus; p2 &oplus; (k &oplus; k)
+        = p1 &oplus; p2            (because k &oplus; k = 0)</pre>
+      <p>So you are really XOR-ing two <em>English letters</em>. English letters cluster in a
+      narrow byte range (lowercase <code>a</code>&ndash;<code>z</code> all share the high bits
+      <code>011xxxxx</code>), so <code>p1 &oplus; p2</code> has <strong>few 1-bits</strong>
+      &rarr; low Hamming distance.</p>
+
+      <p>At a <strong>wrong</strong> keysize, the two bytes used <strong>different</strong>
+      key bytes, so the key does <em>not</em> cancel:</p>
+      <pre class="eq">c1 &oplus; c2 = p1 &oplus; p2 &oplus; (kA &oplus; kB)</pre>
+      <p>Now <code>kA &oplus; kB</code> is a nonzero constant that scrambles the result toward
+      random &rarr; <strong>more 1-bits</strong> &rarr; higher Hamming distance.</p>
+
+      <p>Dividing by K makes different keysizes comparable; averaging over many block pairs
+      smooths the noise so the true keysize's dip stands out. Its <em>multiples</em> dip too,
+      because they are also key-aligned.</p>
+    </div>
+  </details>
+
+  <p class="foot">Cryptopals &middot; Set 1 Challenge 6 companion &middot; experiment before you read the answer</p>
+</div>
+
+<script>
+(function () {
+  const enc = new TextEncoder();
+  const DEFAULT_PT =
+    "The measure of intelligence is the ability to change, and the true " +
+    "sign of a restless mind is the willingness to be wrong out loud. When " +
+    "you cannot change your mind you cannot change anything at all, and so " +
+    "the world moves on without you, quietly and without malice, while the " +
+    "curious keep asking small questions that slowly rearrange everything " +
+    "they thought they knew about the ordinary world around them. Patience " +
+    "is not the absence of urgency but the discipline to let understanding " +
+    "arrive on its own schedule, one honest observation at a time, until the " +
+    "pattern that was hiding in plain sight finally stands up and introduces " +
+    "itself to you at last.";
+
+  const $ = id => document.getElementById(id);
+  const popcount = x => { let c = 0; while (x) { c += x & 1; x >>= 1; } return c; };
+  const hamming = (a, b) => {
+    let d = 0; const n = Math.min(a.length, b.length);
+    for (let i = 0; i < n; i++) d += popcount(a[i] ^ b[i]);
+    return d;
+  };
+  const byteBits = b => b.toString(2).padStart(8, "0");
+  const printable = b => (b >= 32 && b <= 126) ? String.fromCharCode(b) : ".";
+
+  // Render two byte arrays aligned: each byte is one block with row A (top 8 bits)
+  // over row B (bottom 8 bits), differing bits highlighted, and a label beneath.
+  // labelMode "char" shows the two bytes' characters; otherwise the byte index.
+  function renderBits(container, a, b, labelMode) {
+    container.innerHTML = "";
+    const n = Math.min(a.length, b.length);
+    for (let i = 0; i < n; i++) {
+      const ba = byteBits(a[i]), bb = byteBits(b[i]);
+      const blk = document.createElement("div");
+      blk.className = "byteblk";
+      blk.title = "byte " + i + ": A=" + a[i] + " (" + ba + "), B=" + b[i] +
+                  " (" + bb + "), differing bits=" + popcount(a[i] ^ b[i]);
+
+      const rowA = document.createElement("div"); rowA.className = "byterow";
+      const rowB = document.createElement("div"); rowB.className = "byterow";
+      for (let j = 0; j < 8; j++) {
+        const diff = ba[j] !== bb[j];
+        const cellA = document.createElement("div");
+        cellA.className = "bit" + (diff ? " diff" : ""); cellA.textContent = ba[j];
+        const cellB = document.createElement("div");
+        cellB.className = "bit" + (diff ? " diff" : ""); cellB.textContent = bb[j];
+        rowA.appendChild(cellA); rowB.appendChild(cellB);
+      }
+      blk.appendChild(rowA); blk.appendChild(rowB);
+
+      const lab = document.createElement("div");
+      lab.className = "bytelabel";
+      lab.textContent = labelMode === "char"
+        ? printable(a[i]) + " " + printable(b[i])
+        : String(i);
+      blk.appendChild(lab);
+      container.appendChild(blk);
+    }
+  }
+
+  // ---- section 1: hamming playground ----
+  function updateHamming() {
+    const a = enc.encode($("h1").value);
+    const b = enc.encode($("h2i").value);
+    renderBits($("hamBits"), a, b, "char");
+    const d = hamming(a, b);
+    const n = Math.min(a.length, b.length);
+    $("hamDist").textContent = d;
+    $("hamNorm").textContent = n ? (d / n).toFixed(2) : "0";
+  }
+  ["h1", "h2i"].forEach(id => $(id).addEventListener("input", updateHamming));
+
+  // ---- sections 2 & 3: keysize detector ----
+  const rkx = (data, key) => {
+    const out = new Uint8Array(data.length);
+    for (let i = 0; i < data.length; i++) out[i] = data[i] ^ key[i % key.length];
+    return out;
+  };
+  const MAXK = 40;
+  let cipher = new Uint8Array();
+  let selectedK = null;
+
+  function normDistForK(bytes, K, numBlocks) {
+    const avail = Math.floor(bytes.length / K);
+    const use = Math.min(numBlocks, avail);
+    if (use < 2) return NaN;
+    // average over ALL pairs of the first `use` blocks (more stable than just
+    // consecutive pairs), each normalised by K
+    let total = 0, pairs = 0;
+    for (let i = 0; i < use; i++) {
+      for (let j = i + 1; j < use; j++) {
+        const a = bytes.subarray(i * K, (i + 1) * K);
+        const b = bytes.subarray(j * K, (j + 1) * K);
+        total += hamming(a, b) / K;
+        pairs++;
+      }
+    }
+    return total / pairs;
+  }
+
+  function recompute() {
+    const pt = enc.encode($("pt").value);
+    const key = enc.encode($("key").value || "X");
+    cipher = rkx(pt, key);
+    $("ctlen").textContent = cipher.length;
+    const numBlocks = +$("blocks").value;
+    $("blocksVal").textContent = numBlocks;
+
+    const maxK = Math.min(MAXK, Math.floor(cipher.length / 2));
+    const scores = [];
+    for (let K = 2; K <= maxK; K++) scores.push({ K, v: normDistForK(cipher, K, numBlocks) });
+    const valid = scores.filter(s => !isNaN(s.v));
+    const min = Math.min(...valid.map(s => s.v));
+    const max = Math.max(...valid.map(s => s.v));
+
+    const chart = $("chart"), xaxis = $("xaxis");
+    chart.innerHTML = ""; xaxis.innerHTML = "";
+    scores.forEach(s => {
+      const bar = document.createElement("div");
+      bar.className = "bar" + (s.v === min ? " min" : "") + (s.K === selectedK ? " sel" : "");
+      // taller = lower distance = better candidate: best (min) -> 174px, worst -> 6px
+      const frac = isNaN(s.v) ? 0 : (max - s.v) / (max - min || 1);
+      bar.style.height = (6 + 168 * frac) + "px";
+      bar.title = "K=" + s.K + ": " + (isNaN(s.v) ? "n/a" : s.v.toFixed(3)) + " bits/byte";
+      bar.onclick = () => { selectedK = s.K; recompute(); };
+      chart.appendChild(bar);
+      const lab = document.createElement("span");
+      lab.textContent = s.K;
+      xaxis.appendChild(lab);
+    });
+    if (selectedK === null) selectedK = valid.find(s => s.v === min).K;
+    showBlocks();
+  }
+
+  function showBlocks() {
+    const K = selectedK;
+    $("selK").textContent = "K = " + K;
+    const a = cipher.subarray(0, K);
+    const b = cipher.subarray(K, 2 * K);
+    renderBits($("selBits"), a, b, "index");
+    $("selNorm").textContent = (hamming(a, b) / K).toFixed(3);
+  }
+
+  ["pt", "key", "blocks"].forEach(id => $(id).addEventListener("input", recompute));
+
+  // init
+  $("pt").value = DEFAULT_PT;
+  updateHamming();
+  recompute();
+})();
+</script>
+</body>
+</html>

@@ -319,5 +319,34 @@ worth turning into a blog post. Newest entries at the top of each set.
   property of the *one given example* into the code (`ICE`→`% 3` here). Each time
   Claude caught it the same way — by running the code on inputs *off* the example.
   A concrete lesson in how an AI critic tests differently than I instinctively do.
+- **Process note (feedback to Claude):** I realized Claude was mentioning other
+  challenges while I was solving the current one, which would usually give me
+  hints. I therefore prompted it to take note of this and edit its memory and the
+  CLAUDE.md file to avoid spoilers going forward. (Good blog material on where the
+  AI-as-tutor approach needs guardrails.)
 - **Status:** solved (stdlib, `bytes`-based, modulus). Refactor to
   `cryptolib` + `cycle` pending (separate commit). No scratch planned.
+
+### Challenge 6 — Break repeating-key XOR · [link](https://cryptopals.com/sets/1/challenges/6) · (in progress)
+
+- **Concept it teaches:** breaking Vigenère-style XOR with no key and no key length —
+  guess the key length via Hamming distance, then split into single-byte-XOR problems.
+- **Understanding phase (before coding):** I was confused about *why* Hamming distance
+  should reveal the key length. Rather than explain it, Claude built an interactive
+  artifact — `interactive/vigenere-keysize.html` — where I encrypt text with a key I
+  choose, sweep candidate key lengths, and watch the normalised Hamming distance dip at
+  the true length (and its multiples). It also has a bit-level view and Socratic prompts.
+- **How I worked it out (the part I'm proud of):** I formed a hypothesis (XOR of two
+  English letters has few 1-bits because their byte values are clustered). Claude
+  confirmed that half was right but pointed out the gap — the ciphertext bytes aren't
+  English, so *what happens to the key?* — and suggested two experiments (see
+  `06_break_repeating_key_xor/experiments.py`). Running them, I derived it myself:
+  at the correct keysize the two bytes share a key byte, so `c1 ⊕ c2 = (p1⊕k) ⊕ (p2⊕k)
+  = p1 ⊕ p2` — the key cancels (because `k ⊕ k = 0`), leaving English⊕English (few
+  bits). At a wrong keysize the key bytes differ, leaving a scrambling `kA ⊕ kB` term
+  (many bits). The artifact's reveal box now holds that full explanation.
+- **Process note:** this was the AI-as-tutor loop working well — a visualization + guided
+  experiments led me to the insight instead of being handed it. (Contrast with the
+  earlier session where Claude *over*-shared about this challenge; we added a no-spoiler
+  rule to CLAUDE.md after that. Both are useful blog material.)
+- **Status:** in progress — understand keysize detection; now implementing the full break.

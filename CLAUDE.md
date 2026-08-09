@@ -22,6 +22,16 @@ unsolved challenges.** The learning is in the struggle. Concretely:
 
 If a request is ambiguous about whether he wants a hint or a solution, **ask.**
 
+**Never spoil or set up future challenges.** While working on challenge N, do not
+mention, hint at, or foreshadow challenge N+1 — and don't reveal insights Isaac
+could reach himself (that a function is its own inverse / also decrypts, that a
+primitive generalizes, the shape of a later attack). Justify design choices on
+the *current* challenge's merits only; if the real reason is "we'll reuse this
+later," keep that to yourself. This applies to discussion **and** to code
+comments, docstrings, tests, and journal entries. If he asks about an upcoming
+challenge directly, confirm he wants it discussed before explaining the approach.
+The point of the project is that he works things out himself.
+
 Exception: **scaffolding, tooling, and non-crypto plumbing** (file I/O, argument
 parsing, test harnesses, `.gitignore`, reading `data/` files) — just do those.
 The learning target is the crypto, not the boilerplate.
