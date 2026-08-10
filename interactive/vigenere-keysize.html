@@ -48,7 +48,11 @@
   .quest { border-left:4px solid var(--amber); background:rgba(200,134,42,.08);
            padding:.6rem .9rem; border-radius:8px; margin:.9rem 0; font-size:.97rem; }
   .quest strong { color:var(--clay); }
-  /* bit grids -- each byte is a small block: row A (top) over row B (bottom) */
+  .modes { display:flex; gap:1.3rem; margin-bottom:.7rem; font-family:var(--font-sans); }
+  .modes label { display:inline-flex; align-items:center; gap:.35rem; text-transform:none;
+                 letter-spacing:0; color:var(--ink); font-size:.92rem; margin:0; cursor:pointer; }
+  .hidden { display:none; }
+  /* bit grids */
   .bits { display:flex; flex-wrap:wrap; gap:7px; margin:.4rem 0 .6rem; }
   .byteblk { display:inline-flex; flex-direction:column; align-items:center; }
   .byterow { display:flex; gap:1px; }
@@ -67,6 +71,7 @@
          cursor:pointer; transition:background .1s; min-width:14px; }
   .bar:hover { background:var(--pine); outline:2px solid var(--pine); }
   .bar.min { background:var(--emerald); }
+  .bar.mult { box-shadow: inset 0 0 0 2px var(--emerald); }
   .bar.sel { outline:3px solid var(--amber); }
   .xaxis { display:flex; gap:3px; font-family:var(--font-mono); font-size:.62rem;
            color:var(--muted); overflow-x:auto; }
@@ -75,9 +80,34 @@
   .pill { display:inline-block; font-family:var(--font-mono); font-size:.8rem;
           background:var(--cream); border:1px solid var(--surface-border); color:var(--pine);
           border-radius:999px; padding:.15rem .55rem; }
+  /* break: controls + transpose grid */
+  .breakctrls { display:flex; flex-wrap:wrap; gap:.6rem 1.1rem; align-items:center;
+                font-family:var(--font-sans); font-size:.9rem; margin-bottom:.6rem; }
+  .breakctrls input[type=number] { width:4rem; font-family:var(--font-mono); padding:.3rem .4rem;
+    border:1px solid var(--surface-border); border-radius:8px; background:var(--cream); color:var(--ink); }
+  .btn { font-family:var(--font-sans); font-size:.85rem; cursor:pointer;
+         border:1px solid var(--surface-border); background:var(--cream); color:var(--pine);
+         border-radius:8px; padding:.3rem .7rem; }
+  .btn:hover { background:#e9f2e6; }
+  .btn.primary { background:var(--emerald); color:#fff; border-color:var(--emerald); }
+  .speed { width:90px; }
+  .tgrid { display:grid; gap:2px; overflow-x:auto; padding-bottom:5px; margin:.3rem 0; }
+  .ghead { font-family:var(--font-mono); font-size:.58rem; color:var(--muted); text-align:center; }
+  .ghead.solved { color:var(--emerald); font-weight:bold; }
+  .gcell { font-family:var(--font-mono); font-size:.72rem; text-align:center; padding:.15rem 0;
+           background:var(--cream); color:var(--muted); border-radius:2px; cursor:pointer; }
+  .gcell.solved { background:rgba(46,125,82,.20); color:var(--forest); font-weight:bold; }
+  .gcell.focus { outline:2px solid var(--amber); }
+  .gempty { background:transparent; cursor:default; }
+  .keyout { font-family:var(--font-mono); font-size:.95rem; background:var(--code-bg);
+            color:var(--code-text); padding:.5rem .7rem; border-radius:8px; word-break:break-all;
+            margin:.5rem 0; }
+  .ptout { font-family:var(--font-mono); font-size:.82rem; background:var(--code-bg);
+           color:var(--code-text); padding:.7rem .8rem; border-radius:8px; white-space:pre-wrap;
+           max-height:200px; overflow:auto; line-height:1.4; }
+  .err { color:var(--clay); font-family:var(--font-sans); font-size:.88rem; }
   .foot { color:var(--muted); font-size:.85rem; margin-top:2.5rem; text-align:center; }
   .hint { color:var(--muted); font-size:.85rem; }
-  /* spoiler reveal */
   details.reveal { background:var(--surface); border:1px solid var(--surface-border);
                    border-radius:var(--radius); padding:.2rem 1.1rem; margin:1rem 0; }
   details.reveal > summary { cursor:pointer; font-family:var(--font-sans); font-weight:bold;
@@ -92,12 +122,11 @@
 <body>
 <div class="wrap">
 
-  <h1>Repeating-key XOR &mdash; finding the key length</h1>
-  <p class="lede">The first step in breaking repeating-key (Vigen&egrave;re) XOR is guessing
-  the key's <em>length</em>. The claimed tool for that is the <strong>Hamming distance</strong>
-  (the number of differing bits between two byte strings). This page lets you
-  experiment with <em>why</em> that works &mdash; poke at it and see if you can explain the
-  pattern before reading any explanation.</p>
+  <h1>Repeating-key XOR &mdash; breaking it</h1>
+  <p class="lede">Break repeating-key (Vigen&egrave;re) XOR with no key and no key
+  length. Step 1: guess the length via <strong>Hamming distance</strong>. Step 2:
+  transpose the ciphertext into single-byte-XOR columns and solve each. Do the whole
+  thing interactively below &mdash; experiment before reading the answer.</p>
 
   <!-- 1. Hamming playground -->
   <h2>1. What Hamming distance <em>is</em></h2>
@@ -117,16 +146,28 @@
   </div>
 
   <!-- 2. Keysize detector -->
-  <h2>2. Does it reveal the key length?</h2>
-  <p>Encrypt some English text with a key of your choice. Then, for each candidate
-  key length K, we chop the ciphertext into K-byte blocks and measure the average
-  Hamming distance between blocks &mdash; <em>normalised</em> by dividing by K (so long and
-  short K's compare fairly). Each bar is one candidate K.</p>
+  <h2>2. Find the key length</h2>
+  <p>For each candidate key length K, chop the ciphertext into K-byte blocks and measure
+  the average Hamming distance between blocks, <em>normalised</em> by dividing by K. Each
+  bar is one K.</p>
   <div class="card">
-    <div><label for="pt">Plaintext (English)</label><textarea id="pt"></textarea></div>
+    <div class="modes">
+      <label><input type="radio" name="mode" value="encrypt" checked> Encrypt my own text</label>
+      <label><input type="radio" name="mode" value="paste"> Paste base64 ciphertext</label>
+    </div>
+    <div id="encryptInputs">
+      <div><label for="pt">Plaintext (English)</label><textarea id="pt"></textarea></div>
+      <div class="row" style="margin-top:.7rem">
+        <div style="flex:0 1 220px"><label for="key">Key (its length is the secret)</label>
+          <input id="key" type="text" value="SPHINX"></div>
+      </div>
+    </div>
+    <div id="pasteInputs" class="hidden">
+      <label for="ctb64">Base64 ciphertext</label>
+      <textarea id="ctb64" placeholder="Paste base64-encoded ciphertext here..."></textarea>
+      <div id="pasteErr" class="err"></div>
+    </div>
     <div class="row" style="margin-top:.7rem">
-      <div style="flex:0 1 220px"><label for="key">Key (its length is the secret)</label>
-        <input id="key" type="text" value="SPHINX"></div>
       <div style="flex:0 1 260px">
         <label for="blocks">Blocks averaged: <span id="blocksVal">10</span></label>
         <input id="blocks" class="slider" type="range" min="2" max="25" value="10">
@@ -134,39 +175,63 @@
     </div>
     <div class="hint" style="margin-top:.5rem">Ciphertext length: <span id="ctlen">&ndash;</span> bytes.
       <strong>Taller = lower normalised distance = more likely the key length.</strong>
-      The best candidate is highlighted <span style="color:var(--emerald)">green</span>.
-      Click any bar to inspect it below.</div>
-
+      Best candidate is <span style="color:var(--emerald)">green</span>; its
+      <em>multiples</em> get a green ring. Click any bar to break with that K below.</div>
     <div id="chart" class="chart"></div>
     <div id="xaxis" class="xaxis"></div>
+  </div>
+
+  <!-- 3. Break it (transpose grid + animated solve) -->
+  <h2>3. Break it &mdash; the transpose, step by step</h2>
+  <p>Lay the ciphertext out <strong>K bytes per row</strong>. Then each <em>column</em> is
+  every K-th byte &mdash; the bytes all encrypted with the <em>same</em> key byte. So each
+  column is a single-byte-XOR puzzle: pick the key byte whose column decrypts to the most
+  English-looking text. Solve the columns left to right and the key appears.</p>
+  <div class="card">
+    <div class="breakctrls">
+      <span>Key length K:
+        <input id="kInput" type="number" min="2" max="40" value="6">
+        <span class="hint">suggested: <b id="suggK" class="num">&ndash;</b></span></span>
+      <span>
+        <button class="btn primary" id="runBtn">&#9654; Run the attack</button>
+        <button class="btn" id="prevBtn">&#9664; col</button>
+        <button class="btn" id="nextBtn">col &#9654;</button>
+      </span>
+      <span>speed <input id="speed" class="speed slider" type="range" min="1" max="10" value="5"></span>
+      <button class="btn" id="dispBtn">Display: hex</button>
+      <span class="hint">solved: <b id="stepInfo" class="num">0/0</b></span>
+    </div>
+
+    <div id="grid" class="tgrid"></div>
+    <div id="gridNote" class="hint"></div>
+    <div id="focusInfo" class="hint" style="margin-top:.3rem"></div>
+
+    <div class="keyout" id="keyOut">&ndash;</div>
+    <label>Decrypted text (full)</label>
+    <div class="ptout" id="ptOut">&ndash;</div>
 
     <div class="quest">
-      <strong>Experiment 1:</strong> change the key to different lengths (try 4, 7, 11 letters).
-      Where does the green (best) bar move? Do you notice anything about <em>multiples</em> of it?
-    </div>
-    <div class="quest">
-      <strong>Experiment 2:</strong> drag "blocks averaged" down to 2, then back up. Is the best
-      bar trustworthy with only 2 blocks? What happens as you average more?
+      Run it at the <em>true</em> keysize, then set K to a <em>multiple</em> (e.g. 2&times; the
+      key length), then a <em>wrong</em> one. When do the columns turn into readable English &mdash;
+      and what does the recovered key look like at a multiple?
     </div>
   </div>
 
-  <!-- 3. Look inside a keysize -->
-  <h2>3. Look inside &mdash; bit by bit</h2>
-  <p>The first two K-byte blocks of the ciphertext for the keysize you clicked above
+  <!-- 4. Look inside a keysize -->
+  <h2>4. Look inside &mdash; bit by bit</h2>
+  <p>The first two K-byte blocks of the ciphertext for the current K
   (<span class="pill" id="selK">K = ?</span>). <strong>Top row = block 0, bottom row =
-  block 1</strong>; the label is the byte's position within the block. So the two bits in
-  each column are the bytes that sit <em>K apart</em> in the ciphertext.</p>
+  block 1</strong>; the two bits in each column are bytes that sit <em>K apart</em>.</p>
   <div class="card">
     <div class="bitlegend">Block 0 vs Block 1 &nbsp;&middot;&nbsp; normalised Hamming: <b id="selNorm" class="num">&ndash;</b></div>
     <div id="selBits" class="bits"></div>
     <div class="quest">
-      <strong>The real question:</strong> click the <em>true</em> keysize (your key's length),
-      then click a <em>wrong</em> one. When are there fewer differing bits? Bytes in the same
-      column were XOR'd with... what? And two English letters XOR'd together tend to differ in
-      how many bits, versus two <em>random</em> bytes? See if that cracks the "why".
+      Bytes in the same column were XOR'd with... what? And two English letters XOR'd together
+      tend to differ in how many bits, versus two <em>random</em> bytes? That is the "why".
     </div>
   </div>
 
+  <!-- answer -->
   <h2>The answer</h2>
   <details class="reveal">
     <summary>Reveal: why Hamming distance finds the key length (open only after you've tried)</summary>
@@ -180,16 +245,14 @@
       narrow byte range (lowercase <code>a</code>&ndash;<code>z</code> all share the high bits
       <code>011xxxxx</code>), so <code>p1 &oplus; p2</code> has <strong>few 1-bits</strong>
       &rarr; low Hamming distance.</p>
-
       <p>At a <strong>wrong</strong> keysize, the two bytes used <strong>different</strong>
       key bytes, so the key does <em>not</em> cancel:</p>
       <pre class="eq">c1 &oplus; c2 = p1 &oplus; p2 &oplus; (kA &oplus; kB)</pre>
       <p>Now <code>kA &oplus; kB</code> is a nonzero constant that scrambles the result toward
       random &rarr; <strong>more 1-bits</strong> &rarr; higher Hamming distance.</p>
-
-      <p>Dividing by K makes different keysizes comparable; averaging over many block pairs
-      smooths the noise so the true keysize's dip stands out. Its <em>multiples</em> dip too,
-      because they are also key-aligned.</p>
+      <p>Dividing by K makes keysizes comparable; averaging over many block pairs smooths the
+      noise. Multiples of the true keysize dip too, because a repeated key (<code>key</code> vs
+      <code>keykey</code>) is equally valid &mdash; bytes 2K apart still share a key byte.</p>
     </div>
   </details>
 
@@ -211,6 +274,10 @@
     "pattern that was hiding in plain sight finally stands up and introduces " +
     "itself to you at last.";
 
+  const FREQ = { ' ':18.0,'e':10.2,'t':7.5,'a':6.5,'o':6.1,'i':5.7,'n':5.5,'h':4.9,
+    's':5.1,'r':4.8,'d':3.5,'l':3.3,'c':2.3,'u':2.3,'m':2.0,'w':1.6,'f':1.8,'g':1.6,
+    'y':1.6,'p':1.6,'b':1.3,'v':0.8,'k':0.6,'j':0.1,'x':0.1,'q':0.1,'z':0.1 };
+
   const $ = id => document.getElementById(id);
   const popcount = x => { let c = 0; while (x) { c += x & 1; x >>= 1; } return c; };
   const hamming = (a, b) => {
@@ -220,126 +287,264 @@
   };
   const byteBits = b => b.toString(2).padStart(8, "0");
   const printable = b => (b >= 32 && b <= 126) ? String.fromCharCode(b) : ".";
+  const toHex = arr => Array.from(arr).map(b => b.toString(16).padStart(2, "0")).join("");
+  const hex2 = b => b.toString(16).padStart(2, "0");
+  const bytesToText = arr =>
+    Array.from(arr).map(b => (b === 10 || (b >= 32 && b <= 126)) ? String.fromCharCode(b) : ".").join("");
 
-  // Render two byte arrays aligned: each byte is one block with row A (top 8 bits)
-  // over row B (bottom 8 bits), differing bits highlighted, and a label beneath.
-  // labelMode "char" shows the two bytes' characters; otherwise the byte index.
-  function renderBits(container, a, b, labelMode) {
-    container.innerHTML = "";
-    const n = Math.min(a.length, b.length);
-    for (let i = 0; i < n; i++) {
-      const ba = byteBits(a[i]), bb = byteBits(b[i]);
-      const blk = document.createElement("div");
-      blk.className = "byteblk";
-      blk.title = "byte " + i + ": A=" + a[i] + " (" + ba + "), B=" + b[i] +
-                  " (" + bb + "), differing bits=" + popcount(a[i] ^ b[i]);
-
-      const rowA = document.createElement("div"); rowA.className = "byterow";
-      const rowB = document.createElement("div"); rowB.className = "byterow";
-      for (let j = 0; j < 8; j++) {
-        const diff = ba[j] !== bb[j];
-        const cellA = document.createElement("div");
-        cellA.className = "bit" + (diff ? " diff" : ""); cellA.textContent = ba[j];
-        const cellB = document.createElement("div");
-        cellB.className = "bit" + (diff ? " diff" : ""); cellB.textContent = bb[j];
-        rowA.appendChild(cellA); rowB.appendChild(cellB);
-      }
-      blk.appendChild(rowA); blk.appendChild(rowB);
-
-      const lab = document.createElement("div");
-      lab.className = "bytelabel";
-      lab.textContent = labelMode === "char"
-        ? printable(a[i]) + " " + printable(b[i])
-        : String(i);
-      blk.appendChild(lab);
-      container.appendChild(blk);
+  function scoreBytes(arr) {
+    if (!arr.length) return 0;
+    let s = 0;
+    for (const b of arr) {
+      const ch = String.fromCharCode(b).toLowerCase();
+      if (FREQ[ch] !== undefined) s += FREQ[ch];
+      else if (b >= 32 && b <= 126) { /* neutral */ }
+      else s -= 15;
     }
+    return s / arr.length;
   }
-
-  // ---- section 1: hamming playground ----
-  function updateHamming() {
-    const a = enc.encode($("h1").value);
-    const b = enc.encode($("h2i").value);
-    renderBits($("hamBits"), a, b, "char");
-    const d = hamming(a, b);
-    const n = Math.min(a.length, b.length);
-    $("hamDist").textContent = d;
-    $("hamNorm").textContent = n ? (d / n).toFixed(2) : "0";
+  function singleByteKey(col) {
+    let best = -Infinity, bestKey = 0;
+    for (let k = 0; k < 256; k++) {
+      const x = col.map(b => b ^ k);
+      const sc = scoreBytes(x);
+      if (sc > best) { best = sc; bestKey = k; }
+    }
+    return bestKey;
   }
-  ["h1", "h2i"].forEach(id => $(id).addEventListener("input", updateHamming));
-
-  // ---- sections 2 & 3: keysize detector ----
   const rkx = (data, key) => {
     const out = new Uint8Array(data.length);
     for (let i = 0; i < data.length; i++) out[i] = data[i] ^ key[i % key.length];
     return out;
   };
-  const MAXK = 40;
+  function column(cipher, K, i) {
+    const out = [];
+    for (let j = i; j < cipher.length; j += K) out.push(cipher[j]);
+    return Uint8Array.from(out);
+  }
+  function breakWithKeysize(cipher, K) {
+    const key = new Uint8Array(K);
+    for (let i = 0; i < K; i++) key[i] = singleByteKey(column(cipher, K, i));
+    return { key, plaintext: rkx(cipher, key) };
+  }
+
+  function renderBits(container, a, b, labelMode) {
+    container.innerHTML = "";
+    const n = Math.min(a.length, b.length);
+    for (let i = 0; i < n; i++) {
+      const ba = byteBits(a[i]), bb = byteBits(b[i]);
+      const blk = document.createElement("div"); blk.className = "byteblk";
+      const rowA = document.createElement("div"); rowA.className = "byterow";
+      const rowB = document.createElement("div"); rowB.className = "byterow";
+      for (let j = 0; j < 8; j++) {
+        const diff = ba[j] !== bb[j];
+        const cA = document.createElement("div"); cA.className = "bit" + (diff ? " diff" : ""); cA.textContent = ba[j];
+        const cB = document.createElement("div"); cB.className = "bit" + (diff ? " diff" : ""); cB.textContent = bb[j];
+        rowA.appendChild(cA); rowB.appendChild(cB);
+      }
+      blk.appendChild(rowA); blk.appendChild(rowB);
+      const lab = document.createElement("div"); lab.className = "bytelabel";
+      lab.textContent = labelMode === "char" ? printable(a[i]) + " " + printable(b[i]) : String(i);
+      blk.appendChild(lab);
+      container.appendChild(blk);
+    }
+  }
+
+  // section 1
+  function updateHamming() {
+    const a = enc.encode($("h1").value), b = enc.encode($("h2i").value);
+    renderBits($("hamBits"), a, b, "char");
+    const d = hamming(a, b), n = Math.min(a.length, b.length);
+    $("hamDist").textContent = d;
+    $("hamNorm").textContent = n ? (d / n).toFixed(2) : "0";
+  }
+  ["h1", "h2i"].forEach(id => $(id).addEventListener("input", updateHamming));
+
+  // sections 2-4 state
+  const MAXK = 40, GRID_ROWS = 10;
+  const reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   let cipher = new Uint8Array();
-  let selectedK = null;
+  let selectedK = 6, bestK = 6, solvedCount = 0, focusCol = null, displayMode = "hex";
+  let curKey = new Uint8Array(), curPlain = new Uint8Array(), animTimer = null;
+
+  const currentMode = () => document.querySelector('input[name="mode"]:checked').value;
+
+  function getCipher() {
+    if (currentMode() === "paste") {
+      const raw = $("ctb64").value.replace(/\s+/g, "");
+      $("pasteErr").textContent = "";
+      if (!raw) return new Uint8Array();
+      try {
+        const bin = atob(raw);
+        const arr = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+        return arr;
+      } catch (e) { $("pasteErr").textContent = "That does not look like valid base64."; return new Uint8Array(); }
+    }
+    const pt = enc.encode($("pt").value), key = enc.encode($("key").value || "X");
+    return rkx(pt, key);
+  }
 
   function normDistForK(bytes, K, numBlocks) {
-    const avail = Math.floor(bytes.length / K);
-    const use = Math.min(numBlocks, avail);
+    const use = Math.min(numBlocks, Math.floor(bytes.length / K));
     if (use < 2) return NaN;
-    // average over ALL pairs of the first `use` blocks (more stable than just
-    // consecutive pairs), each normalised by K
     let total = 0, pairs = 0;
-    for (let i = 0; i < use; i++) {
+    for (let i = 0; i < use; i++)
       for (let j = i + 1; j < use; j++) {
-        const a = bytes.subarray(i * K, (i + 1) * K);
-        const b = bytes.subarray(j * K, (j + 1) * K);
-        total += hamming(a, b) / K;
+        total += hamming(bytes.subarray(i * K, (i + 1) * K), bytes.subarray(j * K, (j + 1) * K)) / K;
         pairs++;
       }
-    }
     return total / pairs;
   }
 
   function recompute() {
-    const pt = enc.encode($("pt").value);
-    const key = enc.encode($("key").value || "X");
-    cipher = rkx(pt, key);
+    stopAnim();
+    cipher = getCipher();
     $("ctlen").textContent = cipher.length;
-    const numBlocks = +$("blocks").value;
-    $("blocksVal").textContent = numBlocks;
-
-    const maxK = Math.min(MAXK, Math.floor(cipher.length / 2));
-    const scores = [];
-    for (let K = 2; K <= maxK; K++) scores.push({ K, v: normDistForK(cipher, K, numBlocks) });
-    const valid = scores.filter(s => !isNaN(s.v));
-    const min = Math.min(...valid.map(s => s.v));
-    const max = Math.max(...valid.map(s => s.v));
+    $("blocksVal").textContent = $("blocks").value;
 
     const chart = $("chart"), xaxis = $("xaxis");
     chart.innerHTML = ""; xaxis.innerHTML = "";
+    const maxK = Math.min(MAXK, Math.floor(cipher.length / 2));
+    if (maxK < 2) {
+      $("grid").innerHTML = ""; $("keyOut").textContent = "-"; $("ptOut").textContent = "-";
+      $("selBits").innerHTML = ""; $("suggK").textContent = "-"; return;
+    }
+    const numBlocks = +$("blocks").value;
+    const scores = [];
+    for (let K = 2; K <= maxK; K++) scores.push({ K, v: normDistForK(cipher, K, numBlocks) });
+    const valid = scores.filter(s => !isNaN(s.v));
+    const min = Math.min(...valid.map(s => s.v)), max = Math.max(...valid.map(s => s.v));
+    bestK = valid.find(s => s.v === min).K;
+    $("suggK").textContent = bestK;
+
     scores.forEach(s => {
       const bar = document.createElement("div");
-      bar.className = "bar" + (s.v === min ? " min" : "") + (s.K === selectedK ? " sel" : "");
-      // taller = lower distance = better candidate: best (min) -> 174px, worst -> 6px
+      const isMult = s.K !== bestK && s.K % bestK === 0;
+      bar.className = "bar" + (s.v === min ? " min" : "") + (isMult ? " mult" : "") + (s.K === selectedK ? " sel" : "");
       const frac = isNaN(s.v) ? 0 : (max - s.v) / (max - min || 1);
       bar.style.height = (6 + 168 * frac) + "px";
       bar.title = "K=" + s.K + ": " + (isNaN(s.v) ? "n/a" : s.v.toFixed(3)) + " bits/byte";
-      bar.onclick = () => { selectedK = s.K; recompute(); };
+      bar.onclick = () => setK(s.K);
       chart.appendChild(bar);
-      const lab = document.createElement("span");
-      lab.textContent = s.K;
-      xaxis.appendChild(lab);
+      const lab = document.createElement("span"); lab.textContent = s.K; xaxis.appendChild(lab);
     });
-    if (selectedK === null) selectedK = valid.find(s => s.v === min).K;
+
+    if (selectedK < 2 || selectedK > maxK) selectedK = bestK;
+    computeBreak();
+    solvedCount = selectedK;   // default: fully solved so the result is visible
+    focusCol = null;
+    $("kInput").value = selectedK;
+    renderBreak();
     showBlocks();
+  }
+
+  function computeBreak() {
+    const r = breakWithKeysize(cipher, selectedK);
+    curKey = r.key; curPlain = r.plaintext;
+  }
+
+  function setK(k) {
+    stopAnim();
+    const maxK = Math.min(MAXK, Math.floor(cipher.length / 2));
+    selectedK = Math.max(2, Math.min(k, maxK));
+    // update chart selection highlight
+    Array.from($("chart").children).forEach((bar, idx) => bar.classList.toggle("sel", (idx + 2) === selectedK));
+    $("kInput").value = selectedK;
+    computeBreak();
+    solvedCount = selectedK; focusCol = null;
+    renderBreak(); showBlocks();
+  }
+
+  function setSolved(n) {
+    solvedCount = Math.max(0, Math.min(n, selectedK));
+    renderBreak();
+  }
+
+  function renderBreak() {
+    const K = selectedK;
+    $("stepInfo").textContent = solvedCount + "/" + K;
+    $("dispBtn").textContent = "Display: " + displayMode;
+    const grid = $("grid");
+    grid.innerHTML = "";
+    grid.style.gridTemplateColumns = "repeat(" + K + ", 1.7rem)";
+
+    // header row
+    for (let c = 0; c < K; c++) {
+      const h = document.createElement("div");
+      h.className = "ghead" + (c < solvedCount ? " solved" : "");
+      h.textContent = c;
+      grid.appendChild(h);
+    }
+    // data rows (windowed)
+    const totalRows = Math.ceil(cipher.length / K);
+    const rows = Math.min(GRID_ROWS, totalRows);
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < K; c++) {
+        const idx = r * K + c;
+        const cell = document.createElement("div");
+        if (idx >= cipher.length) { cell.className = "gcell gempty"; grid.appendChild(cell); continue; }
+        const solved = c < solvedCount;
+        cell.className = "gcell" + (solved ? " solved" : "") + (c === focusCol ? " focus" : "");
+        const byte = cipher[idx];
+        if (displayMode === "hex") cell.textContent = hex2(byte);
+        else cell.textContent = solved ? printable(byte ^ curKey[c]) : printable(byte);
+        cell.onclick = () => { focusCol = c; setSolved(c + 1); };
+        grid.appendChild(cell);
+      }
+    }
+    $("gridNote").textContent =
+      "showing first " + rows + " of " + totalRows + " rows (" + cipher.length + " bytes), " + K + " per row";
+
+    if (focusCol !== null && focusCol < K) {
+      const kb = curKey[focusCol];
+      $("focusInfo").textContent =
+        "column " + focusCol + " = bytes at offsets " + focusCol + ", " + (focusCol + K) + ", " +
+        (focusCol + 2 * K) + ", ... solved with key byte 0x" + hex2(kb) + " ('" + printable(kb) + "')";
+    } else {
+      $("focusInfo").textContent = "click a column to inspect it";
+    }
+
+    const keyChars = Array.from(curKey.slice(0, solvedCount)).map(printable).join("");
+    $("keyOut").textContent = 'key so far (' + solvedCount + "/" + K + '): "' + keyChars + '"' +
+      (solvedCount === K ? "   [hex " + toHex(curKey) + "]" : "");
+    $("ptOut").textContent = bytesToText(curPlain).slice(0, 700);
   }
 
   function showBlocks() {
     const K = selectedK;
     $("selK").textContent = "K = " + K;
-    const a = cipher.subarray(0, K);
-    const b = cipher.subarray(K, 2 * K);
+    const a = cipher.subarray(0, K), b = cipher.subarray(K, 2 * K);
     renderBits($("selBits"), a, b, "index");
-    $("selNorm").textContent = (hamming(a, b) / K).toFixed(3);
+    $("selNorm").textContent = b.length ? (hamming(a, b) / K).toFixed(3) : "-";
   }
 
-  ["pt", "key", "blocks"].forEach(id => $(id).addEventListener("input", recompute));
+  // animation
+  function stepDelay() { return 720 - (+$("speed").value) * 64; }
+  function stopAnim() { if (animTimer) { clearInterval(animTimer); animTimer = null; } }
+  function runAttack() {
+    stopAnim();
+    if (reducedMotion) { setSolved(selectedK); return; }
+    solvedCount = 0; focusCol = null; renderBreak();
+    animTimer = setInterval(() => {
+      if (solvedCount >= selectedK) { stopAnim(); return; }
+      solvedCount++; renderBreak();
+    }, stepDelay());
+  }
+
+  // wiring
+  ["pt", "key", "blocks", "ctb64"].forEach(id => $(id).addEventListener("input", recompute));
+  document.querySelectorAll('input[name="mode"]').forEach(r => r.addEventListener("change", () => {
+    const paste = currentMode() === "paste";
+    $("encryptInputs").classList.toggle("hidden", paste);
+    $("pasteInputs").classList.toggle("hidden", !paste);
+    selectedK = 6; recompute();
+  }));
+  $("kInput").addEventListener("input", () => { const v = parseInt($("kInput").value, 10); if (v >= 2) setK(v); });
+  $("runBtn").addEventListener("click", runAttack);
+  $("prevBtn").addEventListener("click", () => { stopAnim(); setSolved(solvedCount - 1); });
+  $("nextBtn").addEventListener("click", () => { stopAnim(); setSolved(solvedCount + 1); });
+  $("dispBtn").addEventListener("click", () => { displayMode = displayMode === "hex" ? "chars" : "hex"; renderBreak(); });
 
   // init
   $("pt").value = DEFAULT_PT;
