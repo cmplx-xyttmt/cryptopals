@@ -394,3 +394,46 @@ worth turning into a blog post. Newest entries at the top of each set.
   principles. The debug-with-the-AI-but-don't-get-spoon-fed loop, concretely.
 - **Status:** solved (stdlib). No scratch — it's byte/logic work reusing cryptolib
   primitives. Artifact extension (visualise the full break) still to come.
+
+### Challenge 7 — AES in ECB mode · [link](https://cryptopals.com/sets/1/challenges/7) · (stdlib)
+
+- **Concept it teaches:** first block cipher. AES-128 in **ECB** (Electronic
+  Codebook) mode: split the data into 16-byte blocks and encrypt/decrypt each
+  block independently under the same key. Key = `YELLOW SUBMARINE` (16 bytes).
+- **Depth question I asked first:** the AES internals looked complicated — did I
+  need to study them? Claude's steer: **no** — AES the block cipher (S-boxes, key
+  schedule, rounds) is a rabbit hole you offload to a library; the *actual* concept
+  here is ECB as a **mode of operation**, which is simple ("encrypt each 16-byte
+  block independently"). Study the mode, not the math. Good depth-calibration —
+  knowing what you *don't* need to learn is itself useful.
+- **My approach:** `Crypto.Cipher.AES.new(key, AES.MODE_ECB).decrypt(ciphertext)`.
+- **The bug (embarrassing but instructive):** I copy-pasted the `DATA_FILE` line
+  from Challenge 6 and forgot to change `6.txt` -> `7.txt`. So I was feeding
+  Challenge 6's *repeating-key-XOR* ciphertext into AES -> undecodable garbage.
+  Worse, I went down a **padding rabbit hole** (tried padding short blocks with
+  0s, then with the remainder) trying to fix it.
+- **Claude's hint (decisive):** the tell was in the *data*, not the code — a valid
+  AES-ECB ciphertext is always an exact multiple of 16 bytes, but `6.txt` decoded
+  to a length that's **12 mod 16**. That non-alignment is exactly why I hit short
+  final blocks and reached for padding. Fix = point at the right file; the whole
+  padding branch then becomes unreachable. Claude also corrected my mental model:
+  **padding lives on the plaintext side (before encryption); on decrypt you strip
+  it, never add it to the ciphertext.** And: block size (16) is not the key length
+  — they only coincide here because the key is 16 bytes.
+- **Fix:** point `DATA_FILE` at `7.txt`; simplified to a single `decrypt` call on
+  the whole ciphertext (ECB is stateless, so no manual block loop and no padding
+  handling needed). Answer decrypts to the "Play That Funky Music" lyrics again
+  ("I'm back and I'm ringin' the bell ...").
+- **stdlib vs scratch:** stdlib only, by design — a from-scratch AES is a large
+  separate project and isn't what this challenge teaches.
+- **Tests:** I argued none are needed since it's just a library call. Fair for AES
+  itself, but Claude pushed back that a single *known-answer* check tests our
+  *wiring* (right file/key/mode) and would have caught the filename bug — so a
+  one-line assertion is cheap insurance (decision pending).
+- **Blog hook:** "the padding red herring." A plain plumbing bug (wrong filename)
+  disguised itself as a crypto/padding problem, and I burned time treating the
+  symptom. What cut through it wasn't staring harder at the code — it was a
+  *property of the data* (length mod 16 must be 0 for AES ciphertext). Also a neat
+  AI-tutor beat: the most useful early advice was "you do NOT need to study AES
+  internals for this," calibrating how deep to go.
+- **Status:** solved (stdlib). No scratch.
