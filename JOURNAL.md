@@ -437,3 +437,48 @@ worth turning into a blog post. Newest entries at the top of each set.
   AI-tutor beat: the most useful early advice was "you do NOT need to study AES
   internals for this," calibrating how deep to go.
 - **Status:** solved (stdlib). No scratch.
+
+### Challenge 8 — Detect AES in ECB mode · [link](https://cryptopals.com/sets/1/challenges/8) · (stdlib)
+
+- **Concept it teaches:** detect which of many ciphertexts was ECB-encrypted,
+  using only ECB's determinism (same 16-byte plaintext block -> same ciphertext
+  block). No key, no decryption.
+- **First approach (wrong lens):** I reached for **Hamming distance** again (carry-
+  over from Challenge 6) — lowest average distance across blocks. It gave a clear
+  winner, but I wasn't convinced, and rightly so.
+- **Claude's reframe (the key nudge):** AES ciphertext blocks look **random**, so
+  two *different* blocks differ in ~half their bits — there's no statistical
+  gradient to measure. Averaging Hamming distance is measuring noise; it only
+  "worked" because identical blocks have distance **0**, dragging the average down.
+  The real signal isn't *similar* blocks, it's **identical** ones. Reframe:
+  stop measuring similarity, search for exact duplicate 16-byte blocks.
+- **Fix:** for each line, split into 16-byte blocks and check for any exact
+  duplicate (`len(set(blocks)) != len(blocks)`). Exactly one line qualifies —
+  **line 132** — and you can even eyeball it: the block `08649af7...44cd283`
+  repeats four times.
+- **Cleanup insight:** my first version imported `AES`, `hamming_distance`,
+  `statistics` and built an AES object — all unused. Detecting ECB needs **no key
+  and no decryption**; it's purely structural. Removing the dead code made that
+  point obvious.
+- **Is this general? (the question I asked after):**
+  - The *mechanism* is fully general and **false-positive-free**: a duplicate
+    16-byte block essentially can't happen by chance in random ciphertext (2**128
+    block space, birthday bound ~2**64), so duplicates ⟹ ECB.
+  - But as a *detector* it has **false negatives**: it only fires if the plaintext
+    had a repeated block. ECB without repeats is indistinguishable from random.
+  - English prose rarely triggers it — 16 identical bytes is long, AND the repeat
+    must land on the same **16-byte alignment** (offset mod 16). The challenge data
+    was chosen to contain an aligned repeat.
+  - ECB's real leak is on **repetitive/structured data** — the "ECB penguin"
+    (a bitmap encrypted in ECB keeps its outline, because uniform-colour regions
+    are identical plaintext blocks -> identical ciphertext blocks).
+- **Artifact:** planning an "ECB penguin" visual next (encrypt an image in ECB vs a
+  proper mode, side by side) to *see* why repetition leaks.
+- **stdlib vs scratch:** stdlib only; no scratch.
+- **Tests:** `test_challenge08.py` — known-answer (line 132) + `has_repeated_block`
+  unit cases (adjacent repeat, all-distinct, non-adjacent repeat).
+- **Blog hook:** "Hamming distance was a proxy for the real thing." I carried a
+  tool that worked in Challenge 6 into a problem where it only *coincidentally*
+  worked; the fix was recognising the signal was *exact equality*, not similarity.
+  Plus the neat twist: you can detect ECB **without ever decrypting**.
+- **Status:** solved (stdlib). **Set 1 complete.**
