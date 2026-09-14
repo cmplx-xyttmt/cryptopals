@@ -482,3 +482,56 @@ worth turning into a blog post. Newest entries at the top of each set.
   worked; the fix was recognising the signal was *exact equality*, not similarity.
   Plus the neat twist: you can detect ECB **without ever decrypting**.
 - **Status:** solved (stdlib). **Set 1 complete.**
+
+---
+
+## Set 2 — Block crypto
+
+### Challenge 9 — Implement PKCS#7 padding · [link](https://cryptopals.com/sets/2/challenges/9)
+
+- **Concept it teaches:** Block ciphers only eat whole blocks, so a message has
+  to be stretched to a multiple of the block size. PKCS#7 does it in a way that
+  is *self-describing*: every pad byte's value is the number of pad bytes added.
+  The `\x04` in the challenge's example isn't a magic constant; it's a count.
+- **First approach:** <Isaac: fill in how you thought about it>. Code-wise:
+  work out how many whole blocks the data needs (integer division, plus one if
+  there's a remainder), compute the shortfall, and append that many copies of a
+  pad byte. The pad byte was a parameter defaulting to `b'\x04'`.
+- **Wrong turns / bugs:**
+  - Passing the official vector for the wrong reason. `"YELLOW SUBMARINE"` to a
+    20-byte block needs 4 pad bytes, and the default pad byte happened to be
+    `\x04`, so the output matched. But `pkcs7(b"YELLOW SUB", 16)` produced six
+    `\x04` bytes where PKCS#7 wants six `\x06` bytes. Claude caught this by
+    running the function on a second input.
+  - After fixing the pad value, I wasn't sure what `\x04` even *is*, and guessed
+    hex text: `hex(padding).encode()`. That gives the 3-byte string `b'0x4'`,
+    so the output was `b'YELLOW SUBMARINE0x40x40x40x4'`. `\x04` is Python's
+    display of a single byte whose value is 4; the `\x` is notation, same
+    lesson as Challenge 1 (bytes are numbers, hex is how the repr shows the
+    unprintable ones). `bytes([4])` builds that byte.
+  - Data that is already block-aligned (16 bytes to a 16-byte block) came back
+    untouched. The spec adds a whole block of padding in that case, so a reader
+    can always strip the padding by looking at the last byte.
+- **Critique → change:** Claude: the pad byte must be *derived*, not passed in;
+  the "how many to add" arithmetic can be one line using `%`, which also gives
+  the full-block case for free; drop the redundant `bytes(...)` wrap; the
+  `__main__` block should assert the expected answer instead of printing.
+  Final version is three lines: `padding = block_size - len(data) % block_size`,
+  then `data + bytes([padding] * padding)`. The `%` form gives a full block
+  when the data is already aligned, which the ceiling-division version could
+  not. Checked against pycryptodome's `pad` on 2000 random inputs: no
+  mismatches.
+- **stdlib vs scratch:** One file. The hand-written version *is* the scratch
+  version; the "stdlib" counterpart is pycryptodome's `Crypto.Util.Padding.pad`,
+  which the tests use as a reference rather than giving it its own file.
+- **Tests:** `test_challenge09.py` — official vector, pad value equals pad
+  count, aligned input gets a full block, empty input, one byte short, a
+  property sweep over every length up to three blocks for six block sizes
+  (padded length is a multiple, last byte says how many to strip, stripping
+  returns the original), and a 500-case comparison against pycryptodome.
+  13 passing.
+- **Artifact:** —
+- **Blog hook:** A test vector where the right answer hides a wrong model. One
+  extra input exposed it. Possibly the cheapest "AI as critic" win so far: the
+  critic didn't need to read the spec, just try a second example.
+- **Status:** solved
