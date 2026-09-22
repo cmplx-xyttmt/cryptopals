@@ -82,3 +82,17 @@ def single_byte_xor_decrypt(data: bytes) -> XorResult:
         if score > best.score:
             best = XorResult(key, score, text)
     return best
+
+
+def pkcs7(data: bytes, block_size: int) -> bytes:
+    """Pad ``data`` up to a multiple of ``block_size``, PKCS#7 style.
+
+    Every pad byte holds the *number* of pad bytes added, so the last byte of
+    the result always says how many to strip. Padding is added even when the
+    data is already aligned (a whole extra block), because otherwise a message
+    ending in the byte ``\x06`` would be indistinguishable from one carrying
+    six pad bytes.
+    """
+    padding = block_size - len(data) % block_size
+    padded_data = data + bytes([padding] * padding)
+    return padded_data

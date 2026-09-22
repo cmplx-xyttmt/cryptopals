@@ -535,3 +535,86 @@ worth turning into a blog post. Newest entries at the top of each set.
   extra input exposed it. Possibly the cheapest "AI as critic" win so far: the
   critic didn't need to read the spec, just try a second example.
 - **Status:** solved
+
+### Challenge 10 — Implement CBC mode · [link](https://cryptopals.com/sets/2/challenges/10)
+
+- **Concept it teaches:** Chaining. ECB encrypts every block independently, which
+  is why identical plaintext blocks leak (Challenge 8, the penguin). CBC XORs each
+  plaintext block with the previous *ciphertext* block before it goes into AES, so
+  the same 16 bytes encrypt differently depending on what came before. The IV is
+  what stands in for "the previous ciphertext block" when there isn't one yet.
+- **First approach:** I read the last two lines of the statement as contradictory:
+  one says build encryption out of the ECB function plus XOR, the next says decrypt
+  the file. Working out my question to Claude, I answered half of it myself — the
+  XOR *is* what they mean by "each ciphertext block is added to the next plaintext
+  block", and it's the same fixed XOR from Challenge 2. Claude confirmed both
+  directions were wanted: decrypt is the deliverable, encrypt gives me a round-trip
+  test. Then I wrote both loops, and they were right first time.
+- **Wrong turns / bugs:**
+  - **The big one: I never base64-decoded the file.** `DATA_FILE.read_text().encode()`
+    turns the base64 *characters* into bytes, so I was feeding AES the text
+    `CRIwqt4+szDb...` as if it were ciphertext. Challenge 7 had `base64.b64decode`
+    and I dropped it. I blamed the IV for this.
+  - **"ASCII 0" and `ascii(0)`.** I couldn't tell whether "all ASCII 0
+    (`\x00\x00\x00` &c)" meant the character `'0'` or the value 0, and reached for
+    the builtin `ascii()`. But `ascii(0)` returns the *repr string* `'0'`, so
+    `ord(ascii(0))` is 48 and my IV was sixteen copies of the character zero. The
+    challenge means the NUL byte, value 0, which is literally what `\x00` spells.
+    My commented-out `bytes([0] * BLOCK_SIZE)` was right all along.
+  - **Third time for the same trap.** Challenge 1 was `b'SSdt'` and not knowing what
+    the `b` meant. Challenge 9 was `hex(4)` giving the text `'0x4'` instead of the
+    byte `\x04`. Now `ascii(0)` giving `'0'` instead of `\x00`. Every time, a
+    function that *formats a number as text* when I wanted the raw byte.
+  - **Padding only when the last block is short.** I padded inside the loop with
+    `if len(block) < BLOCK_SIZE`, so a plaintext that's an exact multiple of 16
+    got no padding at all — exactly the Challenge 9 bug again, one challenge later.
+    And my own `pkcs7` already handles the aligned case, so the conditional was
+    undoing the fix I'd just made.
+  - **My round trip wasn't one.** `aes_cbc_decrypt` never strips padding, so
+    encrypting 21 bytes and decrypting gave back 32 with `\x0b` × 11 on the end.
+    It "passed" because I was eyeballing a `print` and the text looked right.
+    Claude: an `assert x == pt` would have failed on the spot. Same lesson as
+    Challenge 9 — a check that isn't `==` isn't a check.
+- **Debugging thing worth keeping:** with the base64 fixed but the IV still wrong,
+  only the *first 16 bytes* came out as garbage and the rest of the song was
+  perfect. That instantly localises the bug: the IV is only wired into block one.
+  Reading *where* the corruption stopped was faster than re-reading my code.
+- **Critique → change:** Added the `b64decode`, switched the IV to
+  `bytes([0] * BLOCK_SIZE)`, and moved `pkcs7` above the loop so every block is
+  full and the aligned case gets its own block. Still to do: the unpad, which
+  goes in `cryptolib` next to `pkcs7` rather than inside `aes_cbc_decrypt`, so a
+  failure in the chaining and a failure in the padding can't hide each other.
+- **Unpadding — the thing I had backwards:** I asked whether reading the last
+  byte breaks when the plaintext is a multiple of the block size. It doesn't,
+  and the reason is the rule I'd already implemented a week earlier without
+  connecting it: because `pkcs7` *always* adds padding, an aligned input gets a
+  full block of `\x10`, so the last byte is always a count. If padding were ever
+  skipped, a message ending in the byte 6 would be indistinguishable from one
+  carrying six pad bytes. Challenge 9 taught me the rule; Challenge 10 is where
+  I understood what it was for.
+- **Why the library CBC "didn't work":** I'd tried `AES.new(key, AES.MODE_CBC)`
+  with no `iv=` to check my encryption. pycryptodome doesn't default the IV to
+  zeros, it generates a *random* one. So the output had sixteen bytes of garbage
+  followed by clean text — the exact signature I'd just learned to read. With
+  `iv=bytes(16)` my ciphertext matches the library's byte for byte, both ways.
+- **stdlib vs scratch:** One file again. The mode itself is the from-scratch part
+  (pycryptodome's `MODE_CBC` is the stdlib version, used only as the test oracle);
+  AES on a single block stays a library call, as in Challenge 7.
+- **Tests:** `test_challenge10.py`, 15 cases. The backbone is a cross-check
+  against pycryptodome's `MODE_CBC` on 200 random key/IV/length combinations in
+  each direction. Claude's point: a self round-trip passes even when both halves
+  share the same misunderstanding, so encrypt and decrypt have to be checked
+  against something that isn't me. Plus the official vector, round trips over
+  eight lengths, a test that repeated plaintext blocks stay distinct under CBC
+  while ECB collapses them to one, and one pinning that a wrong IV corrupts only
+  the first block.
+- **Artifact:** —
+- **Blog hook:** "The bug was never where I thought it was." I was sure the IV
+  spec was ambiguous and spent my effort there; the IV *was* wrong, but the thing
+  actually destroying the output was a missing `b64decode` one line above. Also
+  the running gag of this project: three challenges, three different Python
+  functions that hand you *text describing a number* when you wanted the number.
+  Worth saying plainly: I did Challenge 9 a week ago and had forgotten the
+  padding rule I'd just implemented. The gap between sessions is part of the
+  story, and it's the argument for this journal existing at all.
+- **Status:** solved (unpad helper still to write)
