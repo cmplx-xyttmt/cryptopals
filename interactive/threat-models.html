@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Which seat are you in? Threat models and attacks</title>
+<style>
+  :root {
+    --cream:#f7f3e9; --surface:#fffdf7; --surface-border:#e4dcc7;
+    --forest:#1f3d2b; --pine:#2f5a3d; --emerald:#2e7d52; --moss:#6b7a5a;
+    --amber:#c8862a; --clay:#b1552f; --ink:#16261c; --muted:#6a7568;
+    --code-bg:#14251b; --code-text:#e8f0e4; --radius:16px;
+    --font-serif:Georgia,"Times New Roman",serif;
+    --font-sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+    --font-mono:"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --cream:#10180f; --surface:#17231a; --surface-border:#2b3d2f; --forest:#cfe3d1;
+            --pine:#a9d0b3; --emerald:#6fd39a; --ink:#e6f0e6; --muted:#92a290;
+            --code-bg:#0b130d; --code-text:#dcead9; --amber:#e0a44e; --clay:#e08c63; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:2rem 1rem 4rem; background:var(--cream); color:var(--ink);
+         font-family:var(--font-serif); line-height:1.6; }
+  .wrap { max-width:880px; margin:0 auto; }
+  h1 { font-size:1.85rem; color:var(--forest); margin:0 0 .3rem; }
+  h2 { font-size:1.2rem; color:var(--pine); margin:2.4rem 0 .5rem;
+       border-bottom:2px solid var(--surface-border); padding-bottom:.3rem; }
+  h3 { font-size:1rem; color:var(--forest); margin:1.2rem 0 .3rem; font-family:var(--font-sans); }
+  p { margin:.6rem 0; }
+  .lede { color:var(--muted); font-size:1.05rem; }
+  code { font-family:var(--font-mono); font-size:.9em; }
+  .card { background:var(--surface); border:1px solid var(--surface-border);
+          border-radius:var(--radius); padding:1.1rem 1.2rem; margin:1rem 0;
+          box-shadow:0 2px 10px rgba(31,61,43,.06); }
+  .callout { border-left:4px solid var(--emerald); background:rgba(46,125,82,.08);
+             padding:.7rem 1rem; border-radius:8px; margin:1.1rem 0; }
+  .defs { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:1rem; }
+  .def { background:var(--surface); border:1px solid var(--surface-border);
+         border-radius:var(--radius); padding:1rem 1.1rem; }
+  .def h3 { margin-top:0; }
+  .def .tag { font-family:var(--font-sans); font-size:.7rem; letter-spacing:.09em;
+              text-transform:uppercase; color:var(--moss); display:block; margin-bottom:.2rem; }
+
+  .seats { display:flex; flex-wrap:wrap; gap:.5rem; margin:1rem 0 .2rem; }
+  .seat { font-family:var(--font-sans); font-size:.85rem; cursor:pointer; text-align:left;
+          border:1px solid var(--surface-border); background:var(--surface); color:var(--ink);
+          border-radius:10px; padding:.5rem .8rem; flex:1 1 200px; line-height:1.35; }
+  .seat b { display:block; color:var(--pine); font-size:.9rem; }
+  .seat small { color:var(--muted); }
+  .seat[aria-pressed="true"] { border-color:var(--emerald); background:rgba(46,125,82,.12); }
+  .seat[aria-pressed="true"] b { color:var(--forest); }
+
+  table.grid { width:100%; border-collapse:collapse; font-family:var(--font-sans); font-size:.88rem; }
+  table.grid th, table.grid td { padding:.5rem .6rem; border-bottom:1px solid var(--surface-border);
+                                 text-align:left; }
+  table.grid th { color:var(--moss); font-weight:600; font-size:.76rem;
+                  text-transform:uppercase; letter-spacing:.06em; }
+  table.grid td.asset { color:var(--forest); font-weight:600; }
+  .yes { color:var(--emerald); font-weight:700; }
+  .no  { color:var(--muted); }
+  .key-row td { background:rgba(177,85,47,.07); }
+
+  .lockbar { display:flex; align-items:center; gap:.6rem; flex-wrap:wrap;
+             font-family:var(--font-sans); font-size:.85rem; margin-bottom:.5rem; }
+  textarea { width:100%; min-height:72px; font-family:var(--font-mono); font-size:.85rem;
+             padding:.6rem .7rem; border-radius:10px; border:1px solid var(--surface-border);
+             background:var(--cream); color:var(--ink); resize:vertical; }
+  textarea[readonly] { opacity:.75; cursor:not-allowed; border-style:dashed; }
+  .btn { font-family:var(--font-sans); font-size:.82rem; cursor:pointer;
+         border:1px solid var(--surface-border); background:var(--cream); color:var(--pine);
+         border-radius:8px; padding:.35rem .75rem; }
+  .btn:hover:not(:disabled) { background:rgba(46,125,82,.12); }
+  .btn:disabled { opacity:.4; cursor:not-allowed; }
+
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-top:1rem; }
+  @media (max-width:640px) { .cols { grid-template-columns:1fr; } }
+  .col h3 { margin:0 0 .5rem; display:flex; justify-content:space-between; align-items:baseline; }
+  .blocks { display:flex; flex-wrap:wrap; gap:.35rem; }
+  .blk { width:56px; height:56px; border-radius:8px; font-family:var(--font-mono);
+         font-size:.56rem; color:#fff; display:flex; align-items:flex-end; justify-content:center;
+         padding-bottom:3px; text-shadow:0 1px 2px rgba(0,0,0,.55); border:2px solid transparent; }
+  .blk.dup { border-color:var(--amber); box-shadow:0 0 0 2px rgba(200,134,42,.35); }
+  .verdict { font-family:var(--font-sans); font-size:.82rem; margin-top:.55rem; color:var(--muted); }
+  .verdict b.hit { color:var(--amber); }
+  .verdict b.miss { color:var(--emerald); }
+
+  .scen { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:.7rem; }
+  .scen button { font-family:var(--font-sans); font-size:.82rem; text-align:left; cursor:pointer;
+                 border:1px solid var(--surface-border); background:var(--surface); color:var(--ink);
+                 border-radius:12px; padding:.7rem .8rem; line-height:1.35; }
+  .scen button b { display:block; color:var(--pine); margin-bottom:.15rem; }
+  .scen button[aria-pressed="true"] { border-color:var(--emerald); background:rgba(46,125,82,.12); }
+  #scenOut { margin-top:.9rem; }
+  #scenOut .tick { font-family:var(--font-sans); font-size:.85rem; margin:.25rem 0; }
+  .foot { color:var(--muted); font-size:.85rem; margin-top:3rem; text-align:center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Which seat are you in?</h1>
+  <p class="lede">A cipher is not secure or insecure on its own. It is secure against a
+  particular attacker, with particular powers. Change who is sitting where and the same
+  cipher goes from fine to fatal, without one line of the cipher changing.</p>
+
+  <h2>Two words that get mixed up</h2>
+  <div class="defs">
+    <div class="def">
+      <span class="tag">Threat model</span>
+      <h3>The seating plan</h3>
+      <p>Who holds the key. Who picks the plaintext. Who gets to see the ciphertext. How
+      many times you may ask. It describes a situation, not a technique, and you write it
+      down before you attack anything.</p>
+    </div>
+    <div class="def">
+      <span class="tag">Attack</span>
+      <h3>The move you make</h3>
+      <p>A procedure that pulls out something you should not be able to get. It only means
+      anything relative to a model. "AES is broken" says nothing. "ECB leaks which blocks
+      are equal, to anyone who can see ciphertexts" is a claim about a seat.</p>
+    </div>
+  </div>
+  <div class="callout">
+    Most of the work in breaking something is figuring out which seat you are in. The attack
+    is often short once you know. Getting the seat wrong means you go looking for a clever
+    trick when the answer was that you were allowed to ask the question.
+  </div>
+
+  <h2>The seating plan</h2>
+  <p>Pick a seat. The table shows what that attacker holds.</p>
+  <div class="seats" id="seats"></div>
+  <div class="card">
+    <table class="grid">
+      <thead><tr><th>Asset</th><th>You can see it</th><th>You can choose it</th></tr></thead>
+      <tbody id="gridBody"></tbody>
+    </table>
+    <p class="verdict" id="seatNote"></p>
+  </div>
+
+  <h2>The same cipher, two seats</h2>
+  <p>Below is real AES-128, encrypting the same text two ways. Each tile is one 16-byte
+  block, coloured by its contents, so two identical tiles mean two identical ciphertext
+  blocks. Repeats are ringed in amber.</p>
+
+  <div class="card">
+    <div class="lockbar">
+      <span id="lockIcon">&#128274;</span>
+      <span id="lockNote"></span>
+      <button class="btn" id="fillBtn" type="button">Fill with repeated text</button>
+      <button class="btn" id="againBtn" type="button">Encrypt again</button>
+    </div>
+    <textarea id="input" spellcheck="false"></textarea>
+    <div class="cols">
+      <div class="col">
+        <h3>ECB <span class="verdict" id="ecbCount"></span></h3>
+        <div class="blocks" id="ecbBlocks"></div>
+        <p class="verdict" id="ecbVerdict"></p>
+      </div>
+      <div class="col">
+        <h3>CBC <span class="verdict" id="cbcCount"></span></h3>
+        <div class="blocks" id="cbcBlocks"></div>
+        <p class="verdict" id="cbcVerdict"></p>
+      </div>
+    </div>
+  </div>
+  <p><b>Press "encrypt again" a few times.</b> The ECB tiles never move, because ECB is a
+  plain lookup from block to block with no randomness anywhere. The CBC tiles change every
+  time, because each run picks a fresh random starting value. That difference is why one of
+  them lets you compare two messages and the other does not.</p>
+
+  <h2>Where this shows up</h2>
+  <p>The chosen-plaintext seat needs two things, not one. You have to choose part of the
+  input, <em>and</em> you have to see the ciphertext that comes out. Plenty of real systems
+  hand you one half. The interesting question is always where the other half comes from.</p>
+  <div class="scen" id="scen"></div>
+  <div class="card" id="scenOut"></div>
+
+  <p class="foot">Real AES-128 in about 60 lines of JavaScript, checked against the
+  FIPS-197 and SP 800-38A test vectors. No libraries, no network.</p>
+</div>
+
+<script>
+/* ---------- AES-128 (encryption only), verified against NIST vectors ---------- */
+function xtime(a){ return ((a << 1) ^ ((a >> 7) & 1 ? 0x1b : 0)) & 0xff; }
+const SBOX = (function () {
+  const pow = new Uint8Array(256), log = new Uint8Array(256);
+  let x = 1;
+  for (let i = 0; i < 255; i++) { pow[i] = x; log[x] = i; x ^= xtime(x); }
+  const s = new Uint8Array(256);
+  for (let a = 0; a < 256; a++) {
+    const inv = a === 0 ? 0 : pow[(255 - log[a]) % 255];   /* the %255 matters: log[1] is 0 */
+    let v = inv;
+    for (let r = 1; r <= 4; r++) v ^= ((inv << r) | (inv >> (8 - r))) & 0xff;
+    s[a] = v ^ 0x63;
+  }
+  return s;
+})();
+function expandKey(key) {
+  const w = [];
+  for (let i = 0; i < 4; i++) w.push([key[4*i], key[4*i+1], key[4*i+2], key[4*i+3]]);
+  let rcon = 1;
+  for (let i = 4; i < 44; i++) {
+    let t = w[i-1];
+    if (i % 4 === 0) { t = [SBOX[t[1]] ^ rcon, SBOX[t[2]], SBOX[t[3]], SBOX[t[0]]]; rcon = xtime(rcon); }
+    w.push(w[i-4].map((b, j) => b ^ t[j]));
+  }
+  const keys = [];
+  for (let r = 0; r < 11; r++) {
+    const rk = new Uint8Array(16);
+    for (let c = 0; c < 4; c++) for (let j = 0; j < 4; j++) rk[4*c+j] = w[4*r+c][j];
+    keys.push(rk);
+  }
+  return keys;
+}
+function encryptBlock(rk, input) {
+  const s = new Uint8Array(input);
+  for (let i = 0; i < 16; i++) s[i] ^= rk[0][i];
+  for (let round = 1; round <= 10; round++) {
+    for (let i = 0; i < 16; i++) s[i] = SBOX[s[i]];
+    const t = s.slice();
+    for (let r = 1; r < 4; r++) for (let c = 0; c < 4; c++) s[r+4*c] = t[r + 4*((c+r) % 4)];
+    if (round < 10) {
+      for (let c = 0; c < 4; c++) {
+        const i = 4*c, a0 = s[i], a1 = s[i+1], a2 = s[i+2], a3 = s[i+3];
+        s[i]   = xtime(a0) ^ xtime(a1) ^ a1 ^ a2 ^ a3;
+        s[i+1] = a0 ^ xtime(a1) ^ xtime(a2) ^ a2 ^ a3;
+        s[i+2] = a0 ^ a1 ^ xtime(a2) ^ xtime(a3) ^ a3;
+        s[i+3] = xtime(a0) ^ a0 ^ a1 ^ a2 ^ xtime(a3);
+      }
+    }
+    for (let i = 0; i < 16; i++) s[i] ^= rk[round][i];
+  }
+  return s;
+}
+function pkcs7(b) {
+  const n = 16 - (b.length % 16), out = new Uint8Array(b.length + n);
+  out.set(b); out.fill(n, b.length); return out;
+}
+function ecbEncrypt(key, data) {
+  const rk = expandKey(key), p = pkcs7(data), out = new Uint8Array(p.length);
+  for (let i = 0; i < p.length; i += 16) out.set(encryptBlock(rk, p.subarray(i, i+16)), i);
+  return out;
+}
+function cbcEncrypt(key, data, iv) {
+  const rk = expandKey(key), p = pkcs7(data), out = new Uint8Array(p.length);
+  let prev = iv;
+  for (let i = 0; i < p.length; i += 16) {
+    const blk = new Uint8Array(16);
+    for (let j = 0; j < 16; j++) blk[j] = p[i+j] ^ prev[j];
+    prev = encryptBlock(rk, blk);
+    out.set(prev, i);
+  }
+  return out;
+}
+
+/* ---------- the seating plan ---------- */
+const SEATS = {
+  wire: {
+    label: "Eavesdropper, one message",
+    blurb: "You caught a single ciphertext on the wire.",
+    rows: { key:["no","no"], plaintext:["no","no"], ciphertext:["one of them","no"] },
+    note: "Set 1 put you here for all eight challenges. You are handed something and you stare at it.",
+    locked: true,
+    sample: "We hold these truths to be self-evident, that all are created equal."
+  },
+  many: {
+    label: "Eavesdropper, many messages",
+    blurb: "You are logging traffic and have collected plenty.",
+    rows: { key:["no","no"], plaintext:["no","no"], ciphertext:["as many as you like","no"] },
+    note: "More data, same powerlessness over what goes in. You can now compare messages, which is worth more than it sounds when the cipher repeats itself.",
+    locked: true,
+    sample: "We hold these truths to be self-evident, that all are created equal."
+  },
+  chosen: {
+    label: "Chosen plaintext",
+    blurb: "You can feed it input and read what comes back.",
+    rows: { key:["no","no"], plaintext:["yes","yes, this is the one that matters"], ciphertext:["as many as you like","no"] },
+    note: "The key is still secret and always will be. You never learn it. You do not need to.",
+    locked: false,
+    sample: "We hold these truths to be self-evident, that all are created equal."
+  }
+};
+let seat = "wire";
+
+const seatsEl = document.getElementById("seats");
+Object.entries(SEATS).forEach(([id, s]) => {
+  const b = document.createElement("button");
+  b.className = "seat"; b.type = "button"; b.dataset.seat = id;
+  b.setAttribute("aria-pressed", String(id === seat));
+  b.innerHTML = "<b>" + s.label + "</b><small>" + s.blurb + "</small>";
+  b.addEventListener("click", () => setSeat(id));
+  seatsEl.appendChild(b);
+});
+
+function setSeat(id) {
+  seat = id;
+  [...seatsEl.children].forEach(b => b.setAttribute("aria-pressed", String(b.dataset.seat === id)));
+  const s = SEATS[id];
+  const cell = v => v === "no" ? '<span class="no">no</span>' : '<span class="yes">' + v + "</span>";
+  document.getElementById("gridBody").innerHTML =
+    Object.entries(s.rows).map(([asset, [see, choose]]) =>
+      '<tr' + (asset === "key" ? ' class="key-row"' : '') + '><td class="asset">' + asset +
+      "</td><td>" + cell(see) + "</td><td>" + cell(choose) + "</td></tr>").join("");
+  document.getElementById("seatNote").textContent = s.note;
+
+  const ta = document.getElementById("input");
+  ta.readOnly = s.locked;
+  ta.value = s.sample;
+  document.getElementById("lockIcon").textContent = s.locked ? "\u{1F512}" : "\u{1F513}";
+  document.getElementById("lockNote").textContent = s.locked
+    ? "The input is not yours. You get what you are given."
+    : "The input is yours. Type anything.";
+  document.getElementById("fillBtn").disabled = s.locked;
+  if (!s.locked) ta.focus();
+  render();
+}
+
+/* ---------- the block view ---------- */
+const KEY = new TextEncoder().encode("YELLOW SUBMARINE");
+let iv = randomBytes();
+function randomBytes() {
+  const b = new Uint8Array(16);
+  if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(b);
+  else for (let i = 0; i < 16; i++) b[i] = Math.floor(Math.random() * 256);
+  return b;
+}
+function blocksOf(bytes) {
+  const out = [];
+  for (let i = 0; i < bytes.length; i += 16) out.push(bytes.subarray(i, i + 16));
+  return out;
+}
+function hexOf(b) { return Array.from(b).map(x => x.toString(16).padStart(2, "0")).join(""); }
+function colourOf(b) {
+  const h = ((b[0] << 8 | b[1]) * 360 / 65536) % 360;
+  return "hsl(" + h.toFixed(0) + " " + (46 + b[9] % 34) + "% " + (36 + b[13] % 24) + "%)";
+}
+function paint(el, blocks) {
+  const seen = new Map();
+  blocks.forEach(b => { const k = hexOf(b); seen.set(k, (seen.get(k) || 0) + 1); });
+  el.innerHTML = "";
+  blocks.forEach(b => {
+    const k = hexOf(b), d = document.createElement("div");
+    d.className = "blk" + (seen.get(k) > 1 ? " dup" : "");
+    d.style.background = colourOf(b);
+    d.textContent = k.slice(0, 6);
+    d.title = k;
+    el.appendChild(d);
+  });
+  return new Set(seen.keys()).size;
+}
+function render() {
+  const data = new TextEncoder().encode(document.getElementById("input").value);
+  const ecb = blocksOf(ecbEncrypt(KEY, data));
+  const cbc = blocksOf(cbcEncrypt(KEY, data, iv));
+  const ecbDistinct = paint(document.getElementById("ecbBlocks"), ecb);
+  const cbcDistinct = paint(document.getElementById("cbcBlocks"), cbc);
+
+  document.getElementById("ecbCount").textContent = ecb.length + " blocks, " + ecbDistinct + " distinct";
+  document.getElementById("cbcCount").textContent = cbc.length + " blocks, " + cbcDistinct + " distinct";
+  document.getElementById("ecbVerdict").innerHTML = ecbDistinct < ecb.length
+    ? '<b class="hit">Repeats found.</b> Identical plaintext blocks became identical ciphertext blocks. That is a fingerprint you can spot without the key.'
+    : '<b class="miss">No repeats.</b> Nothing to detect here, which is exactly the trap: ECB is just as broken, this text did not happen to expose it.';
+  document.getElementById("cbcVerdict").innerHTML = cbcDistinct < cbc.length
+    ? '<b class="hit">Repeats found</b>, which with this much text is a coincidence worth a second look.'
+    : '<b class="miss">No repeats.</b> Each block is mixed with the one before it, so identical plaintext blocks land on different ciphertext.';
+}
+
+document.getElementById("input").addEventListener("input", render);
+document.getElementById("againBtn").addEventListener("click", () => { iv = randomBytes(); render(); });
+document.getElementById("fillBtn").addEventListener("click", () => {
+  const ta = document.getElementById("input");
+  ta.value = "the same sixteen".repeat(4);
+  ta.focus(); render();
+});
+
+/* ---------- scenarios ---------- */
+const SCEN = [
+  { id:"cookie", name:"Encrypted session cookie",
+    line:"You sign up, and the server encrypts user=&lt;your name&gt;&amp;role=guest and hands the result back to you as a cookie.",
+    choose:true, see:true,
+    why:"You picked the username, so you control part of the plaintext. The server gives you the ciphertext on purpose, because you have to carry it. Both halves arrive for free, which is why this shape shows up in so many write-ups." },
+  { id:"queue", name:"Job on a message queue",
+    line:"A web app encrypts {to: &lt;the email you typed&gt;, template: welcome} and pushes it onto a queue. A worker decrypts it later.",
+    choose:true, see:false,
+    why:"You chose part of the plaintext, but the ciphertext lives inside infrastructure you cannot read. Half a seat is no seat. To finish it you would need read access to the queue, a log that captures payloads, or a monitoring dashboard that prints them." },
+  { id:"upload", name:"File you upload",
+    line:"You upload a file to a service that encrypts it server-side with a key you never see.",
+    choose:true, see:null,
+    why:"You control the plaintext exactly, byte for byte, which is the strongest version of that half. Whether you can see the ciphertext depends on the service. If stored objects are readable to you, or a bucket is public, the seat is complete." },
+  { id:"column", name:"Encrypted database column",
+    line:"You type into a notes field. The application encrypts that column before writing it.",
+    choose:true, see:null,
+    why:"You wrote the plaintext. The ciphertext sits in a table you cannot query. Then a backup leaks, or a read replica is exposed, and the second half arrives months after the first. Attacks are often assembled out of order." }
+];
+const scenEl = document.getElementById("scen");
+SCEN.forEach(s => {
+  const b = document.createElement("button");
+  b.type = "button"; b.dataset.id = s.id;
+  b.innerHTML = "<b>" + s.name + "</b>";
+  b.addEventListener("click", () => showScen(s.id));
+  scenEl.appendChild(b);
+});
+function showScen(id) {
+  const s = SCEN.find(x => x.id === id);
+  [...scenEl.children].forEach(b => b.setAttribute("aria-pressed", String(b.dataset.id === id)));
+  const mark = v => v === true ? '<span class="yes">yes</span>'
+                 : v === false ? '<span class="no">no</span>'
+                 : '<span class="yes">sometimes</span>';
+  const verdict = s.choose && s.see === true
+    ? '<b class="hit">Chosen-plaintext seat.</b>'
+    : s.see === false ? '<b class="miss">Not the seat. Only half of it.</b>'
+    : '<b class="hit">The seat, if the second half lands.</b>';
+  document.getElementById("scenOut").innerHTML =
+    "<h3>" + s.name + "</h3><p>" + s.line + "</p>" +
+    '<p class="tick">You choose part of the plaintext: ' + mark(s.choose) + "</p>" +
+    '<p class="tick">You can see the ciphertext: ' + mark(s.see) + "</p>" +
+    '<p class="tick">' + verdict + "</p><p>" + s.why + "</p>";
+}
+
+setSeat("wire");
+showScen("cookie");
+</script>
+</body>
+</html>
