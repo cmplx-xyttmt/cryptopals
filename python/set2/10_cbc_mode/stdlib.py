@@ -1,6 +1,6 @@
 from pathlib import Path
 from Crypto.Cipher import AES
-from cryptolib import xor_bytes, pkcs7
+from cryptolib import xor_bytes, pkcs7, strip_pkcs7
 from base64 import b64decode
 
 DATA_FILE = Path(__file__).resolve().parents[3] / "data" / "10.txt"
@@ -48,9 +48,14 @@ if __name__ == '__main__':
 
     pt = "I'm encrypting thine."
     ct = aes_cbc_encrypt(key_, pt.encode(), iv=initialisation_vector)
-    print(aes_cbc_decrypt(key_, ct, initialisation_vector))
+    round_tripped = strip_pkcs7(aes_cbc_decrypt(key_, ct, initialisation_vector), BLOCK_SIZE)
+    assert round_tripped == pt.encode(), round_tripped
 
-    print(aes_cbc_decrypt(key_, cipher_text_, initialisation_vector).decode())
+    plain_ = strip_pkcs7(
+        aes_cbc_decrypt(key_, cipher_text_, initialisation_vector), BLOCK_SIZE
+    )
+    assert plain_.startswith(b"I'm back and I'm ringin' the bell")
+    print(plain_.decode())
 
     # def decrypt_aes_cbc(key: bytes, ciphertext: bytes) -> bytes:
     #     aes = AES.new(key=key, mode=AES.MODE_CBC, iv=initialisation_vector)

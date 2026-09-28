@@ -14,6 +14,7 @@ from Crypto.Util.Padding import pad as reference_pad
 
 from cryptolib import (
     pkcs7,
+    strip_pkcs7,
     xor_bytes,
     hamming_distance,
     english_score,
@@ -255,3 +256,49 @@ class TestPkcs7:
             block_size = rng.randint(1, 255)
             data = rng.randbytes(rng.randint(0, 3 * block_size))
             assert pkcs7(data, block_size) == reference_pad(data, block_size)
+
+
+class TestStripPkcs7:
+    def test_strips_a_partial_block(self):
+        assert strip_pkcs7(b"YELLOW SUB" + b"\x06" * 6, 16) == b"YELLOW SUB"
+
+    def test_strips_a_whole_block_of_padding(self):
+        assert strip_pkcs7(b"YELLOW SUBMARINE" + b"\x10" * 16, 16) == b"YELLOW SUBMARINE"
+
+    def test_strips_back_to_empty(self):
+        assert strip_pkcs7(b"\x08" * 8, 8) == b""
+
+    @pytest.mark.parametrize("block_size", [1, 2, 8, 16, 20, 255])
+    def test_round_trips_with_pkcs7(self, block_size):
+        for n in range(3 * block_size + 1):
+            data = bytes(range(256))[:n] if n <= 256 else bytes(n)
+            assert strip_pkcs7(pkcs7(data, block_size), block_size) == data
+
+    def test_rejects_a_zero_count(self):
+        # data[:-0] would be empty, so a 0 has to be caught rather than sliced.
+        with pytest.raises(ValueError):
+            strip_pkcs7(b"A" * 15 + b"\x00", 16)
+
+    def test_rejects_a_count_larger_than_the_block(self):
+        with pytest.raises(ValueError):
+            strip_pkcs7(b"A" * 15 + b"\x11", 16)
+
+    def test_rejects_pad_bytes_that_disagree(self):
+        with pytest.raises(ValueError):
+            strip_pkcs7(b"A" * 12 + b"\x04\x04\x03\x04", 16)
+
+    def test_rejects_a_short_or_ragged_buffer(self):
+        with pytest.raises(ValueError):
+            strip_pkcs7(b"", 16)
+        with pytest.raises(ValueError):
+            strip_pkcs7(b"A" * 20, 16)
+
+    def test_matches_pycryptodome(self):
+        from Crypto.Util.Padding import unpad as reference_unpad
+
+        rng = random.Random(12)
+        for _ in range(300):
+            block_size = rng.randint(2, 255)
+            data = rng.randbytes(rng.randint(0, 3 * block_size))
+            padded = pkcs7(data, block_size)
+            assert strip_pkcs7(padded, block_size) == reference_unpad(padded, block_size)

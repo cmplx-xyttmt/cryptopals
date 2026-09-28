@@ -9,7 +9,7 @@ import pytest
 from Crypto.Cipher import AES
 
 from challenge_utils import load_solution
-from cryptolib import pkcs7
+from cryptolib import pkcs7, strip_pkcs7
 
 _sol = load_solution(__file__, "stdlib")
 aes_cbc_encrypt = _sol.aes_cbc_encrypt
@@ -30,6 +30,7 @@ def test_official_vector():
     assert plaintext.startswith(b"I'm back and I'm ringin' the bell")
     assert plaintext.endswith(b"Play that funky music \n" + b"\x04" * 4)
     assert len(plaintext) == 2880
+    assert len(strip_pkcs7(plaintext, 16)) == 2876
 
 
 def test_encrypt_matches_pycryptodome():

@@ -96,3 +96,28 @@ def pkcs7(data: bytes, block_size: int) -> bytes:
     padding = block_size - len(data) % block_size
     padded_data = data + bytes([padding] * padding)
     return padded_data
+
+
+def strip_pkcs7(data: bytes, block_size: int) -> bytes:
+    """Remove PKCS#7 padding from ``data``. The inverse of :func:`pkcs7`.
+
+    The last byte is the pad count, and every pad byte has to carry that same
+    count. Anything else is not something :func:`pkcs7` could have produced,
+    so it raises rather than handing back a plaintext that is quietly wrong.
+
+    :raises ValueError: if ``data`` is empty, is not a whole number of blocks,
+        or does not end in well-formed padding.
+    """
+    if not data or len(data) % block_size:
+        raise ValueError(
+            f"strip_pkcs7 expects a non-empty multiple of {block_size} bytes, "
+            f"got {len(data)}"
+        )
+
+    count = data[-1]
+    if not 1 <= count <= block_size:
+        raise ValueError(f"bad padding: last byte is {count}, not 1..{block_size}")
+    if data[-count:] != bytes([count]) * count:
+        raise ValueError(f"bad padding: final {count} bytes are not all {count}")
+
+    return data[:-count]
