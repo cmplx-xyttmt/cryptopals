@@ -584,6 +584,14 @@ worth turning into a blog post. Newest entries at the top of each set.
   full and the aligned case gets its own block. Still to do: the unpad, which
   goes in `cryptolib` next to `pkcs7` rather than inside `aes_cbc_decrypt`, so a
   failure in the chaining and a failure in the padding can't hide each other.
+  `strip_pkcs7` is now written and does exactly that. I'd guessed the shape of
+  it correctly before writing any code: read the last byte as a count, check the
+  final *count* bytes all carry that value, then slice them off. It raises
+  `ValueError` on anything `pkcs7` couldn't have produced, matching how
+  `xor_bytes` already rejects unequal lengths, and Claude pointed out the one
+  slice trap worth a test: a count of 0 would make `data[:-0]` return empty
+  instead of everything. Challenge 10's `__main__` now strips explicitly and
+  asserts, so a direct run prints the lyrics with no `\x04` tail.
 - **Unpadding — the thing I had backwards:** I asked whether reading the last
   byte breaks when the plaintext is a multiple of the block size. It doesn't,
   and the reason is the rule I'd already implemented a week earlier without
@@ -617,4 +625,92 @@ worth turning into a blog post. Newest entries at the top of each set.
   Worth saying plainly: I did Challenge 9 a week ago and had forgotten the
   padding rule I'd just implemented. The gap between sessions is part of the
   story, and it's the argument for this journal existing at all.
-- **Status:** solved (unpad helper still to write)
+- **Status:** solved, both halves of the padding done
+
+### Challenge 11 — An ECB/CBC detection oracle · [link](https://cryptopals.com/sets/2/challenges/11)
+
+- **Status:** not solved. Orientation only this session; solving it next week.
+- **Concept it teaches (and the thing I actually learnt today):** the difference
+  between a **threat model** and an **attack**. The threat model is the seating
+  plan: who holds the key, who picks the plaintext, who gets to see the
+  ciphertext, and how many times you may ask. The attack is the mechanical trick
+  you run *once you know which seat you are in*. I had been treating every
+  challenge as the same seat.
+- **Where I went wrong:** the statement says "write a function that encrypts data
+  under an unknown key", and I read "data" as arbitrary data handed to me. So I
+  asked Claude whether I could assume the plaintext was random, and concluded my
+  Challenge 8 detector was useless because English structure wouldn't be there.
+  Claude pointed out that the oracle takes *my* argument. I didn't work that out
+  myself and wouldn't have from the text alone. I still think the text is unclear
+  on this, but the deeper reason I missed it is that I don't know the security
+  space well enough to be asking "what can the attacker do?" as a reflex.
+- **Set 1 vs here:** every Set 1 challenge put me in the same chair. Someone hands
+  you a ciphertext, you work on it, you are an eavesdropper. The whole set trained
+  a habit I then applied blindly. Set 2 changes the seat and doesn't announce it.
+- **Habit I'm adopting:** before writing any code for a challenge, answer four
+  questions in `notes.md`. Who holds the key? Who chooses the plaintext? What do I
+  get to see? How many times can I ask? If I can't answer all four from the text,
+  that's the thing to resolve first, not the code.
+- **Blog hook (the one worth writing):** threat model vs attack, for people who
+  write software but don't do security. The same cipher is fine in one seat and
+  broken in another, and nothing about the cipher changed. Concrete scenarios to
+  build it around, all cases where you never see the key but you chose part of the
+  plaintext: the encrypted session cookie that contains the username you picked;
+  the job payload on a queue holding the email address you typed; the file you
+  uploaded to a service that encrypts it server-side; the "notes" column encrypted
+  in a database whose backup later leaks.
+- **Artifact:** `interactive/threat-models.html` — "Which seat are you in?". Three
+  parts: the two definitions side by side; a seating-plan table you flip between
+  three attackers (eavesdropper with one message, eavesdropper with many, chosen
+  plaintext) showing who can see and choose the key, plaintext and ciphertext; and
+  a live AES-128 panel with ECB and CBC block tiles. In the eavesdropper seats the
+  input box is **locked** and pre-filled with prose, and ECB shows five distinct
+  blocks, so there is nothing to detect. Switching to the chosen-plaintext seat
+  **unlocks the box**, and that unlocking is the whole lesson. An "encrypt again"
+  button shows ECB never changing while CBC does. Four real scenarios at the
+  bottom, including one (a job on a queue) that deliberately *fails*, to make the
+  point that the seat needs both halves: choosing the input and seeing the
+  ciphertext. The random-prefix wrinkle from Challenge 11 is deliberately absent,
+  since I haven't solved that yet.
+- **Where the tutoring broke down (worth keeping — this is the limits-of-AI thread):**
+  - *My gaps.* I read "encrypts data under an unknown key" as arbitrary data handed
+    to me, because all of Set 1 worked that way. I don't know the security space
+    well enough to have "what can the attacker actually do?" as a reflex, so I went
+    looking for a cleverer detector instead of asking who supplies the input. I also
+    dismissed my own Challenge 8 tool as useless when it was the right tool all along.
+  - *My frustration.* Two separate things, and it's worth splitting them. One is that
+    the challenge text is genuinely unclear about the attack model. The other is the
+    worry underneath it: how many more of these will I misread, and does a hint that
+    reframes an entire challenge mean I didn't solve it? I felt like I'd cheated.
+  - *Where Claude failed me.* Three, in descending order of damage.
+    1. It wrote `strip_pkcs7` with full padding validation as routine Challenge 10
+       plumbing. Padding validation is its own challenge later in Set 2. The
+       implementation, the edge cases and the tests are now done for me. Neither of us
+       noticed until I read ahead. Still open: whether to roll it back to the minimum
+       Challenge 10 needed.
+    2. I asked a clarifying question about Challenge 11 and got the answer to the
+       challenge rather than the smallest nudge that would unstick me. Claude's own
+       words afterwards: it could have said "re-read the oracle's signature and tell me
+       what you notice" and then stopped.
+    3. It wrote a summary claiming I'd "inferred it correctly, then didn't believe
+       myself." I hadn't inferred anything. It made a better story out of what
+       happened, which is exactly the sentence to distrust from an AI tutor. I pushed
+       back and it conceded immediately, which is the point: I only caught it because
+       I happened to remember what I'd actually asked.
+  - *And one from the same session that cuts the other way.* While building the
+    artifact, Claude hand-rolled AES-128 in JavaScript. It passed the FIPS-197 vector
+    and the SP 800-38A vector, and was still wrong: one entry of the S-box, index 1,
+    because `pow[255 - log[1]]` reads off the end of a 255-long table instead of
+    wrapping. Two official test vectors, both green, real bug. Only diffing all 256
+    entries against a known table found it. That is the Challenge 9 lesson again,
+    from the other side of the table, and a decent argument for never trusting
+    generated crypto code that "passes the vector."
+- **Resolutions we came to:**
+  - Before any code on a challenge, answer the four questions in `notes.md`: who holds
+    the key, who chooses the plaintext, what do I see, how many times can I ask.
+  - Orientation questions ("what is this challenge really asking?") get a question
+    back, not an answer. Claude only explains after I've tried and failed.
+  - Helpers that look like plumbing get checked against the rest of the set first.
+- **Was it productive?** I didn't solve Challenge 11 and I'm carrying a hint I didn't
+  earn. But the thing I actually took away transfers past Cryptopals: work out the
+  seating plan before reaching for a trick.
