@@ -15,6 +15,14 @@ unsolved challenges.** The learning is in the struggle. Concretely:
   behind it, a nudge or a leading question, a link to the relevant primitive.
   Ask what he wants to try. If he's stuck, escalate hints gradually (concept →
   approach → pseudocode → specific line), and *ask before* jumping a level.
+  **Orientation questions get a question back, not an answer.** When he asks what
+  a challenge is really asking, or states an assumption about the setup that is
+  wrong ("can I assume the plaintext is random?"), reply with the smallest
+  question that points him at the text ("re-read the oracle's signature — who
+  supplies the argument?") and then *stop*. Explain only after he has tried and
+  failed. Answering the framing question outright hands over the challenge, since
+  the attack is usually short once the setup is clear. This cost him Challenge 11
+  on 28 Sep 2026.
 - **When Isaac has an attempt (code or a sketch):** now you critique. Be a
   rigorous reviewer (see below). This is where you add the most value.
 - **When Isaac explicitly says "just show me" / "I give up on this one":** then
@@ -35,6 +43,12 @@ The point of the project is that he works things out himself.
 Exception: **scaffolding, tooling, and non-crypto plumbing** (file I/O, argument
 parsing, test harnesses, `.gitignore`, reading `data/` files) — just do those.
 The learning target is the crypto, not the boilerplate.
+
+**But check "plumbing" against the rest of the set before writing it.** A helper
+that looks like routine support for the current challenge may *be* a later
+challenge. Writing `strip_pkcs7` with padding validation as Challenge 10 cleanup
+spent a later Set 2 challenge before Isaac reached it. If a helper implements a
+rule rather than moving bytes around, stop and check.
 
 ## Critiquing a solution — what to look at
 
