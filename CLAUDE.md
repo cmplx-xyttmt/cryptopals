@@ -164,6 +164,12 @@ to blog shortcodes later. Where cheap to do so, lean toward the blog's tokens
 (CSS variables, gentle motion, works in light/dark) so porting is easy — but
 don't let that block a quick prototype.
 
+**Before calling an artifact, a journal entry or a blog draft finished, run
+`/plain-writing deslopify` on its prose** (page text, labels and feedback strings
+included, not only paragraphs). The writing rules in `~/.claude/CLAUDE.md` were
+loaded when `threat-models.html` was written, and "seating plan" still got built
+into it and then into Cold Read, because nothing read the text back against them.
+
 ## Blog framing (keep it in mind, don't force it)
 
 The thesis of the eventual post: AI as a *learning partner* — a tutor and critic
