@@ -629,7 +629,7 @@ worth turning into a blog post. Newest entries at the top of each set.
 
 ### Challenge 11 — An ECB/CBC detection oracle · [link](https://cryptopals.com/sets/2/challenges/11)
 
-- **Status:** not solved. Orientation only this session; solving it next week.
+- **Status:** solved (stdlib, 12 Oct 2026). Critique below still to act on.
 - **Concept it teaches (and the thing I actually learnt today):** the difference
   between a **threat model** and an **attack**. The threat model is the seating
   plan: who holds the key, who picks the plaintext, who gets to see the
@@ -659,17 +659,17 @@ worth turning into a blog post. Newest entries at the top of each set.
   the job payload on a queue holding the email address you typed; the file you
   uploaded to a service that encrypts it server-side; the "notes" column encrypted
   in a database whose backup later leaks.
-- **Artifact:** `interactive/threat-models.html` — "Which seat are you in?". Three
-  parts: the two definitions side by side; a seating-plan table you flip between
-  three attackers (eavesdropper with one message, eavesdropper with many, chosen
-  plaintext) showing who can see and choose the key, plaintext and ciphertext; and
-  a live AES-128 panel with ECB and CBC block tiles. In the eavesdropper seats the
+- **Artifact:** `interactive/threat-models.html` — "What can the attacker do?". Three
+  parts: the two definitions side by side; an attack-model table you flip between
+  three attackers (ciphertext only with one message, ciphertext only with many,
+  chosen plaintext) showing who can see and choose the key, plaintext and ciphertext; and
+  a live AES-128 panel with ECB and CBC block tiles. In the ciphertext-only models the
   input box is **locked** and pre-filled with prose, and ECB shows five distinct
-  blocks, so there is nothing to detect. Switching to the chosen-plaintext seat
+  blocks, so there is nothing to detect. Switching to chosen plaintext
   **unlocks the box**, and that unlocking is the whole lesson. An "encrypt again"
   button shows ECB never changing while CBC does. Four real scenarios at the
   bottom, including one (a job on a queue) that deliberately *fails*, to make the
-  point that the seat needs both halves: choosing the input and seeing the
+  point that a chosen-plaintext attack needs both halves: choosing the input and seeing the
   ciphertext. The random-prefix wrinkle from Challenge 11 is deliberately absent,
   since I haven't solved that yet.
 - **Where the tutoring broke down (worth keeping — this is the limits-of-AI thread):**
@@ -714,3 +714,49 @@ worth turning into a blog post. Newest entries at the top of each set.
 - **Was it productive?** I didn't solve Challenge 11 and I'm carrying a hint I didn't
   earn. But the thing I actually took away transfers past Cryptopals: work out the
   seating plan before reaching for a trick.
+
+#### The solve (12 Oct 2026)
+
+- **First approach:** I answered the four questions in my head rather than in
+  `notes.md`, and honestly I already knew from the orientation session what the
+  solution needed, so the solve itself was short. Feed the oracle
+  `"repeat" * 200`, call it ECB if any 16-byte ciphertext block repeats. All five
+  runs matched the mode the oracle printed.
+- **Critique → change** (all from Claude):
+  - *Not self-checking.* The true mode only exists as a `print` inside the
+    oracle, so correctness is checked by eye. Return the mode from the oracle
+    and assert over a thousand runs.
+  - *`random` for keys.* Python's `random` is reproducible by design, and
+    `random.seed(1)` at import means every run uses the same "random" keys.
+    Keys and IVs should come from `secrets`, `os.urandom` or
+    `Crypto.Random.get_random_bytes`. Seed inside tests only.
+  - *Why does the input work?* Open questions from Claude: why "repeat" (6
+    bytes) still produces identical 16-byte blocks, and what the shortest input
+    is that always works with a 5–10 byte random prefix.
+  - *Second use of the Challenge 8 detector.* The repeated-block check is
+    `has_repeated_block` from Challenge 8 written again inline. Second use, so it
+    moves to `cryptolib`. The detector I'd dismissed as useless during
+    orientation was the whole detection step.
+  - *Smaller:* pass the oracle into `detect_mode`, `random.choice` over
+    indexing, no `notes.md` with the four questions yet.
+- **What I changed:** I added the self-check (the oracle returns its mode, and
+  `__main__` asserts over 1000 runs). Then I had Claude make the rest: the
+  detector moved to `cryptolib.has_repeated_block` (Challenge 8 now imports it),
+  `detect_mode` takes the oracle as an argument, and keys, IVs, prefix lengths and
+  the mode choice all come from `secrets`. Taking the oracle as a
+  `bytes -> bytes` function means the detector only ever sees ciphertext, which
+  is the attack model written into the type signature. My first version handed
+  the true mode back to the detector function, so the detector had the answer
+  as an input. Added `test_challenge11.py`.
+- **My answers to the open questions:** the shortest input is 43 bytes of one
+  value. The prefix is 5 to 10 bytes, and I need two whole aligned blocks of my
+  bytes, so I need to reach byte 48. Claude's correction to my reasoning: only the
+  prefix matters, not the suffix, and the *shortest* prefix (5) is the worst case,
+  since 48 - 5 = 43. "repeat" works for a more specific reason than "lots of
+  repetition": a 6-byte pattern lines up with 16-byte blocks every 48 bytes (the
+  least common multiple), so blocks three apart are identical. There's a test for
+  the 43-byte bound now.
+- **Still open:** why `random` is wrong for keys. I thought no random number
+  generator is perfect anyway. Parked to go deeper later.
+- **stdlib vs scratch:** stdlib only so far. <Isaac: whether a scratch version
+  using my Challenge 10 CBC adds anything.>
