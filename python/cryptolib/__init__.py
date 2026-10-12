@@ -121,3 +121,15 @@ def strip_pkcs7(data: bytes, block_size: int) -> bytes:
         raise ValueError(f"bad padding: final {count} bytes are not all {count}")
 
     return data[:-count]
+
+
+def has_repeated_block(ciphertext: bytes, block_size: int = 16) -> bool:
+    """True if any ``block_size`` block of ``ciphertext`` appears more than once.
+
+    ECB encrypts identical plaintext blocks to identical ciphertext blocks, so a
+    duplicate block is a near-certain ECB signal. Random ciphertext effectively
+    never collides: a 16-byte block has 2**128 values, so you'd need around 2**64
+    blocks before a chance repeat. Needs no key and no decryption.
+    """
+    blocks = [ciphertext[i:i + block_size] for i in range(0, len(ciphertext), block_size)]
+    return len(set(blocks)) != len(blocks)

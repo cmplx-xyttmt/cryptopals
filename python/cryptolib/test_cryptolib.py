@@ -20,6 +20,7 @@ from cryptolib import (
     english_score,
     single_byte_xor_decrypt,
     repeating_key_xor,
+    has_repeated_block,
     XorResult,
 )
 
@@ -302,3 +303,22 @@ class TestStripPkcs7:
             data = rng.randbytes(rng.randint(0, 3 * block_size))
             padded = pkcs7(data, block_size)
             assert strip_pkcs7(padded, block_size) == reference_unpad(padded, block_size)
+
+
+class TestHasRepeatedBlock:
+    def test_detects_a_repeated_block(self):
+        block = bytes(range(16))
+        assert has_repeated_block(block + block) is True
+
+    def test_no_repeat_when_all_blocks_distinct(self):
+        distinct = bytes(range(16)) + bytes(range(16, 32)) + bytes(range(32, 48))
+        assert has_repeated_block(distinct) is False
+
+    def test_repeat_need_not_be_adjacent(self):
+        a, b, c = bytes(range(16)), bytes(range(16, 32)), bytes(range(32, 48))
+        assert has_repeated_block(a + b + a + c) is True
+
+    def test_only_aligned_blocks_count(self):
+        # the same 16 bytes twice, but the second copy straddles a block boundary
+        block = bytes(range(16))
+        assert has_repeated_block(block + b"x" + block + b"y" * 15) is False

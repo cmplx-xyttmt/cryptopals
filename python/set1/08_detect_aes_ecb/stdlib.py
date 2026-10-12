@@ -1,19 +1,8 @@
 from pathlib import Path
 
+from cryptolib import has_repeated_block
+
 DATA_FILE = Path(__file__).resolve().parents[3] / "data" / "8.txt"
-BLOCK_SIZE = 16
-
-
-def has_repeated_block(ciphertext: bytes, block_size: int = BLOCK_SIZE) -> bool:
-    """True if any block repeats — the tell-tale sign of ECB.
-
-    ECB encrypts identical plaintext blocks to identical ciphertext blocks, so a
-    duplicate block is a near-certain ECB signal (random ciphertext effectively
-    never collides: a 16-byte block has 2**128 values, birthday bound ~2**64).
-    Needs no key and no decryption — the leak is purely structural.
-    """
-    blocks = [ciphertext[i:i + block_size] for i in range(0, len(ciphertext), block_size)]
-    return len(set(blocks)) != len(blocks)
 
 
 def find_ecb_line(hex_lines: list[str]) -> int:
