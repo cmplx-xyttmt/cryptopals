@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Which seat are you in? Threat models and attacks</title>
+<title>Threat models and attacks</title>
 <style>
   :root {
     --cream:#f7f3e9; --surface:#fffdf7; --surface-border:#e4dcc7;
@@ -42,14 +42,14 @@
   .def .tag { font-family:var(--font-sans); font-size:.7rem; letter-spacing:.09em;
               text-transform:uppercase; color:var(--moss); display:block; margin-bottom:.2rem; }
 
-  .seats { display:flex; flex-wrap:wrap; gap:.5rem; margin:1rem 0 .2rem; }
-  .seat { font-family:var(--font-sans); font-size:.85rem; cursor:pointer; text-align:left;
+  .models { display:flex; flex-wrap:wrap; gap:.5rem; margin:1rem 0 .2rem; }
+  .model { font-family:var(--font-sans); font-size:.85rem; cursor:pointer; text-align:left;
           border:1px solid var(--surface-border); background:var(--surface); color:var(--ink);
           border-radius:10px; padding:.5rem .8rem; flex:1 1 200px; line-height:1.35; }
-  .seat b { display:block; color:var(--pine); font-size:.9rem; }
-  .seat small { color:var(--muted); }
-  .seat[aria-pressed="true"] { border-color:var(--emerald); background:rgba(46,125,82,.12); }
-  .seat[aria-pressed="true"] b { color:var(--forest); }
+  .model b { display:block; color:var(--pine); font-size:.9rem; }
+  .model small { color:var(--muted); }
+  .model[aria-pressed="true"] { border-color:var(--emerald); background:rgba(46,125,82,.12); }
+  .model[aria-pressed="true"] b { color:var(--forest); }
 
   table.grid { width:100%; border-collapse:collapse; font-family:var(--font-sans); font-size:.88rem; }
   table.grid th, table.grid td { padding:.5rem .6rem; border-bottom:1px solid var(--surface-border);
@@ -99,46 +99,47 @@
 <body>
 <div class="wrap">
 
-  <h1>Which seat are you in?</h1>
+  <h1>What can the attacker do?</h1>
   <p class="lede">A cipher is not secure or insecure on its own. It is secure against a
-  particular attacker, with particular powers. Change who is sitting where and the same
-  cipher goes from fine to fatal, without one line of the cipher changing.</p>
+  particular attacker, with particular powers. Give the attacker one more ability and the
+  same cipher can go from fine to broken, without one line of the cipher changing.</p>
 
   <h2>Two words that get mixed up</h2>
   <div class="defs">
     <div class="def">
       <span class="tag">Threat model</span>
-      <h3>The seating plan</h3>
+      <h3>Who can do what</h3>
       <p>Who holds the key. Who picks the plaintext. Who gets to see the ciphertext. How
       many times you may ask. It describes a situation, not a technique, and you write it
-      down before you attack anything.</p>
+      down before you attack anything. Cryptographers name the common cases attack
+      models, such as ciphertext-only and chosen-plaintext.</p>
     </div>
     <div class="def">
       <span class="tag">Attack</span>
       <h3>The move you make</h3>
       <p>A procedure that pulls out something you should not be able to get. It only means
       anything relative to a model. "AES is broken" says nothing. "ECB leaks which blocks
-      are equal, to anyone who can see ciphertexts" is a claim about a seat.</p>
+      are equal, to anyone who can see ciphertexts" is a claim about an attack model.</p>
     </div>
   </div>
   <div class="callout">
-    Most of the work in breaking something is figuring out which seat you are in. The attack
-    is often short once you know. Getting the seat wrong means you go looking for a clever
-    trick when the answer was that you were allowed to ask the question.
+    Most of the work in breaking something is figuring out which attack model you are in.
+    The attack is often short once you know. Get the model wrong and you go looking for a
+    clever trick when the answer was that you were allowed to ask the question.
   </div>
 
-  <h2>The seating plan</h2>
-  <p>Pick a seat. The table shows what that attacker holds.</p>
-  <div class="seats" id="seats"></div>
+  <h2>Three attack models</h2>
+  <p>Pick one. The table shows what that attacker has.</p>
+  <div class="models" id="models"></div>
   <div class="card">
     <table class="grid">
       <thead><tr><th>Asset</th><th>You can see it</th><th>You can choose it</th></tr></thead>
       <tbody id="gridBody"></tbody>
     </table>
-    <p class="verdict" id="seatNote"></p>
+    <p class="verdict" id="modelNote"></p>
   </div>
 
-  <h2>The same cipher, two seats</h2>
+  <h2>The same cipher, two attack models</h2>
   <p>Below is real AES-128, encrypting the same text two ways. Each tile is one 16-byte
   block, coloured by its contents, so two identical tiles mean two identical ciphertext
   blocks. Repeats are ringed in amber.</p>
@@ -170,7 +171,7 @@
   them lets you compare two messages and the other does not.</p>
 
   <h2>Where this shows up</h2>
-  <p>The chosen-plaintext seat needs two things, not one. You have to choose part of the
+  <p>A chosen-plaintext attack needs two things, not one. You have to choose part of the
   input, <em>and</em> you have to see the ciphertext that comes out. Plenty of real systems
   hand you one half. The interesting question is always where the other half comes from.</p>
   <div class="scen" id="scen"></div>
@@ -254,10 +255,10 @@ function cbcEncrypt(key, data, iv) {
   return out;
 }
 
-/* ---------- the seating plan ---------- */
-const SEATS = {
+/* ---------- the attack models ---------- */
+const MODELS = {
   wire: {
-    label: "Eavesdropper, one message",
+    label: "Ciphertext only, one message",
     blurb: "You caught a single ciphertext on the wire.",
     rows: { key:["no","no"], plaintext:["no","no"], ciphertext:["one of them","no"] },
     note: "Set 1 put you here for all eight challenges. You are handed something and you stare at it.",
@@ -265,44 +266,44 @@ const SEATS = {
     sample: "We hold these truths to be self-evident, that all are created equal."
   },
   many: {
-    label: "Eavesdropper, many messages",
+    label: "Ciphertext only, many messages",
     blurb: "You are logging traffic and have collected plenty.",
     rows: { key:["no","no"], plaintext:["no","no"], ciphertext:["as many as you like","no"] },
-    note: "More data, same powerlessness over what goes in. You can now compare messages, which is worth more than it sounds when the cipher repeats itself.",
+    note: "More data, and still no say over what goes in. You can now compare messages, which helps a lot more than it sounds when the same input always gives the same output.",
     locked: true,
     sample: "We hold these truths to be self-evident, that all are created equal."
   },
   chosen: {
     label: "Chosen plaintext",
     blurb: "You can feed it input and read what comes back.",
-    rows: { key:["no","no"], plaintext:["yes","yes, this is the one that matters"], ciphertext:["as many as you like","no"] },
+    rows: { key:["no","no"], plaintext:["yes","yes, and this is the difference"], ciphertext:["as many as you like","no"] },
     note: "The key is still secret and always will be. You never learn it. You do not need to.",
     locked: false,
     sample: "We hold these truths to be self-evident, that all are created equal."
   }
 };
-let seat = "wire";
+let model = "wire";
 
-const seatsEl = document.getElementById("seats");
-Object.entries(SEATS).forEach(([id, s]) => {
+const modelsEl = document.getElementById("models");
+Object.entries(MODELS).forEach(([id, s]) => {
   const b = document.createElement("button");
-  b.className = "seat"; b.type = "button"; b.dataset.seat = id;
-  b.setAttribute("aria-pressed", String(id === seat));
+  b.className = "model"; b.type = "button"; b.dataset.model = id;
+  b.setAttribute("aria-pressed", String(id === model));
   b.innerHTML = "<b>" + s.label + "</b><small>" + s.blurb + "</small>";
-  b.addEventListener("click", () => setSeat(id));
-  seatsEl.appendChild(b);
+  b.addEventListener("click", () => setModel(id));
+  modelsEl.appendChild(b);
 });
 
-function setSeat(id) {
-  seat = id;
-  [...seatsEl.children].forEach(b => b.setAttribute("aria-pressed", String(b.dataset.seat === id)));
-  const s = SEATS[id];
+function setModel(id) {
+  model = id;
+  [...modelsEl.children].forEach(b => b.setAttribute("aria-pressed", String(b.dataset.model === id)));
+  const s = MODELS[id];
   const cell = v => v === "no" ? '<span class="no">no</span>' : '<span class="yes">' + v + "</span>";
   document.getElementById("gridBody").innerHTML =
     Object.entries(s.rows).map(([asset, [see, choose]]) =>
       '<tr' + (asset === "key" ? ' class="key-row"' : '') + '><td class="asset">' + asset +
       "</td><td>" + cell(see) + "</td><td>" + cell(choose) + "</td></tr>").join("");
-  document.getElementById("seatNote").textContent = s.note;
+  document.getElementById("modelNote").textContent = s.note;
 
   const ta = document.getElementById("input");
   ta.readOnly = s.locked;
@@ -359,8 +360,8 @@ function render() {
   document.getElementById("ecbCount").textContent = ecb.length + " blocks, " + ecbDistinct + " distinct";
   document.getElementById("cbcCount").textContent = cbc.length + " blocks, " + cbcDistinct + " distinct";
   document.getElementById("ecbVerdict").innerHTML = ecbDistinct < ecb.length
-    ? '<b class="hit">Repeats found.</b> Identical plaintext blocks became identical ciphertext blocks. That is a fingerprint you can spot without the key.'
-    : '<b class="miss">No repeats.</b> Nothing to detect here, which is exactly the trap: ECB is just as broken, this text did not happen to expose it.';
+    ? '<b class="hit">Repeats found.</b> Identical plaintext blocks became identical ciphertext blocks. You can spot that without the key.'
+    : '<b class="miss">No repeats.</b> Nothing to detect here. ECB is just as broken, this text just did not happen to show it.';
   document.getElementById("cbcVerdict").innerHTML = cbcDistinct < cbc.length
     ? '<b class="hit">Repeats found</b>, which with this much text is a coincidence worth a second look.'
     : '<b class="miss">No repeats.</b> Each block is mixed with the one before it, so identical plaintext blocks land on different ciphertext.';
@@ -379,15 +380,15 @@ const SCEN = [
   { id:"cookie", name:"Encrypted session cookie",
     line:"You sign up, and the server encrypts user=&lt;your name&gt;&amp;role=guest and hands the result back to you as a cookie.",
     choose:true, see:true,
-    why:"You picked the username, so you control part of the plaintext. The server gives you the ciphertext on purpose, because you have to carry it. Both halves arrive for free, which is why this shape shows up in so many write-ups." },
+    why:"You picked the username, so you control part of the plaintext. The server gives you the ciphertext on purpose, because you have to carry it. You get both halves without doing anything unusual, which is why this case shows up in so many write-ups." },
   { id:"queue", name:"Job on a message queue",
     line:"A web app encrypts {to: &lt;the email you typed&gt;, template: welcome} and pushes it onto a queue. A worker decrypts it later.",
     choose:true, see:false,
-    why:"You chose part of the plaintext, but the ciphertext lives inside infrastructure you cannot read. Half a seat is no seat. To finish it you would need read access to the queue, a log that captures payloads, or a monitoring dashboard that prints them." },
+    why:"You chose part of the plaintext, but the ciphertext lives inside infrastructure you cannot read. One half on its own is not a chosen-plaintext attack. To get the other half you would need read access to the queue, a log that captures payloads, or a monitoring dashboard that prints them." },
   { id:"upload", name:"File you upload",
     line:"You upload a file to a service that encrypts it server-side with a key you never see.",
     choose:true, see:null,
-    why:"You control the plaintext exactly, byte for byte, which is the strongest version of that half. Whether you can see the ciphertext depends on the service. If stored objects are readable to you, or a bucket is public, the seat is complete." },
+    why:"You control the plaintext exactly, byte for byte, which is the strongest version of that half. Whether you can see the ciphertext depends on the service. If stored objects are readable to you, or a bucket is public, you have both halves." },
   { id:"column", name:"Encrypted database column",
     line:"You type into a notes field. The application encrypts that column before writing it.",
     choose:true, see:null,
@@ -408,9 +409,9 @@ function showScen(id) {
                  : v === false ? '<span class="no">no</span>'
                  : '<span class="yes">sometimes</span>';
   const verdict = s.choose && s.see === true
-    ? '<b class="hit">Chosen-plaintext seat.</b>'
-    : s.see === false ? '<b class="miss">Not the seat. Only half of it.</b>'
-    : '<b class="hit">The seat, if the second half lands.</b>';
+    ? '<b class="hit">Chosen plaintext.</b>'
+    : s.see === false ? '<b class="miss">Not chosen plaintext. Only half of it.</b>'
+    : '<b class="hit">Chosen plaintext, once you get the second half.</b>';
   document.getElementById("scenOut").innerHTML =
     "<h3>" + s.name + "</h3><p>" + s.line + "</p>" +
     '<p class="tick">You choose part of the plaintext: ' + mark(s.choose) + "</p>" +
@@ -418,7 +419,7 @@ function showScen(id) {
     '<p class="tick">' + verdict + "</p><p>" + s.why + "</p>";
 }
 
-setSeat("wire");
+setModel("wire");
 showScen("cookie");
 </script>
 </body>
