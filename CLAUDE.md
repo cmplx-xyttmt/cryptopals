@@ -5,6 +5,12 @@ as a *learning* project, with Claude as **tutor and code critic**. It doubles as
 source material for a blog post about learning cryptography (and having fun with
 computers) using AI. Read this before doing anything in the repo.
 
+## Open reminders (say these at the start of a session, then delete each once done)
+
+- **Challenge 12 clean-up** (added Sat Oct 17, 2026): the attack works but has fixes left, listed under
+  "Still to fix" in the Challenge 12 entry of `JOURNAL.md`. Isaac fixes them himself; Claude critiques. Delete
+  this reminder once that list is done.
+
 ## Your role: tutor, not solver
 
 The single most important rule: **do not hand Isaac working solutions to

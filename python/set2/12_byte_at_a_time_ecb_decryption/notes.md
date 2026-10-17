@@ -1,0 +1,4 @@
+- **who holds the key**: randomly generate, same all the time, unknown to you.
+- **plaintext**: you control it.
+- **what you get to see**: the ciphertext
+- **times you can ask**: can call the oracle function as many times as you like.

@@ -493,7 +493,8 @@ worth turning into a blog post. Newest entries at the top of each set.
   to be stretched to a multiple of the block size. PKCS#7 does it in a way that
   is *self-describing*: every pad byte's value is the number of pad bytes added.
   The `\x04` in the challenge's example isn't a magic constant; it's a count.
-- **First approach:** <Isaac: fill in how you thought about it>. Code-wise:
+- **First approach:** (Claude to ask me how I thought about it, and write it
+  here.) Code-wise:
   work out how many whole blocks the data needs (integer division, plus one if
   there's a remainder), compute the shortfall, and append that many copies of a
   pad byte. The pad byte was a parameter defaulting to `b'\x04'`.
@@ -758,5 +759,71 @@ worth turning into a blog post. Newest entries at the top of each set.
   the 43-byte bound now.
 - **Still open:** why `random` is wrong for keys. I thought no random number
   generator is perfect anyway. Parked to go deeper later.
-- **stdlib vs scratch:** stdlib only so far. <Isaac: whether a scratch version
-  using my Challenge 10 CBC adds anything.>
+- **stdlib vs scratch:** stdlib only so far. Open question for a later session:
+  whether a scratch version using my Challenge 10 CBC adds anything.
+
+---
+
+### Challenge 12 — Byte-at-a-time ECB decryption (Simple) · [link](https://cryptopals.com/sets/2/challenges/12)
+
+- **Concept it teaches:** if I can put my own bytes in front of a secret before
+  ECB encrypts it, I can line the secret up so that one unknown byte at a time
+  sits at the end of a block, and then guess that byte by comparing blocks.
+- **First approach:** written on 17 Oct after thinking about it for a while.
+  Find the block size from where the ciphertext length jumps, check for ECB,
+  then recover the secret one byte at a time with a dictionary of the 256
+  possible last bytes.
+- **Wrong turns / bugs:** the first attempt kept recovering the first byte and
+  nothing after it. I worked out the fix myself: when building the dictionary,
+  the filler has to be followed by the bytes I've already recovered, not only
+  the filler. The second attempt recovered 16 bytes ("Rollin' in my 5.") and then
+  output `\xff`. My fix: the loop asked for one byte more than there was (I
+  removed a `+ 1`). Then it stopped at "I just", which I put down to padding. I
+  switched to a `while` loop that stops once I have as many bytes as the secret.
+  It works, and it prints the whole lyric, but I'm not happy with it: the attack
+  reads `len(UNKNOWN_DECODED)`, the secret's length, which an attacker wouldn't
+  have. I'm also unhappy with my filler-length formula,
+  `((i + 1) // block_size + 1) * block_size - (i + 1) % block_size`.
+- **Critique → change (Claude, 17 Oct, on the unfinished code):**
+  - The ECB check on `stdlib.py:60` passes `b'a' * 32` (my own input) to
+    `has_repeated_block`, not the ciphertext the oracle returns. It always prints
+    True, even if the oracle used CBC. Right answer, wrong reason.
+  - `PREFIX_STRING` / `PREFIX_DECODED` is the secret, and the oracle appends it
+    *after* my input, so the name says the opposite of what the code does. And
+    `prefix` in `get_unknown_string` means something else (my filler bytes).
+  - `build_dict` and `get_byte` call the global `oracle` directly. Challenge 11's
+    lesson (pass the oracle in as an argument, so the attack only gets what the
+    attacker is allowed) hasn't carried over yet.
+  - The script isn't self-checking: no assert that the recovered bytes equal the
+    secret.
+  - Leftover debug print (`stdlib.py:39-40`) and commented-out code (`:61-63`).
+  - What I changed after that (my fixes): the ECB check now tests
+    `oracle(b'a' * 32)`, the secret is renamed `UNKNOWN_STRING`, and the helpers
+    take the oracle as an argument.
+- **Second critique (Claude, 17 Oct, on the working version):**
+  - The oracle argument defaults to the global `oracle`, and `get_unknown_string`
+    doesn't take one at all, so the attack can still reach the real oracle and the
+    secret. The `len(UNKNOWN_DECODED)` stop condition is the same mistake as my
+    Challenge 11 detector: the attack holds part of the answer. I spotted that one
+    myself.
+  - Claude printed my filler lengths for the first bytes: 15 down to 1, then
+    32 down to 17, then 48. The filler grows by a whole block every 16 bytes, and
+    that growth is what makes the formula hard to read.
+  - Without the `break`, the loop recovers 139 bytes, the last one `\x01`, and
+    then raises `KeyError`. The secret is 138 bytes.
+- **stdlib vs scratch:** —
+- **Artifact:** —
+- **Blog hook:** —
+- **Still to fix (next session):**
+  - Stop without reading the secret. Work out the secret's length from the
+    block-size loop (how many `A`s made the ciphertext length jump, and
+    `len(oracle(b''))`), instead of `len(UNKNOWN_DECODED)`.
+  - Make `get_unknown_string` take the oracle as an argument, and drop the
+    `oracle_=oracle` defaults, so the attack can't reach the globals.
+  - Simplify the filler-length formula (Claude's hint: the filler never needs
+    to be longer than one block minus one byte).
+  - Calculate the comparison length directly instead of reading it off a
+    dictionary key in `get_byte`.
+  - Make the script assert its own answer, and add `test_challenge12.py`.
+  - Remove `blocks = 1` and the commented-out code.
+- **Status:** solved, with clean-up left (see above)
