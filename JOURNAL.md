@@ -814,16 +814,25 @@ worth turning into a blog post. Newest entries at the top of each set.
 - **stdlib vs scratch:** —
 - **Artifact:** —
 - **Blog hook:** —
-- **Still to fix (next session):**
-  - Stop without reading the secret. Work out the secret's length from the
-    block-size loop (how many `A`s made the ciphertext length jump, and
-    `len(oracle(b''))`), instead of `len(UNKNOWN_DECODED)`.
-  - Make `get_unknown_string` take the oracle as an argument, and drop the
-    `oracle_=oracle` defaults, so the attack can't reach the globals.
-  - Simplify the filler-length formula (Claude's hint: the filler never needs
-    to be longer than one block minus one byte).
-  - Calculate the comparison length directly instead of reading it off a
-    dictionary key in `get_byte`.
-  - Make the script assert its own answer, and add `test_challenge12.py`.
-  - Remove `blocks = 1` and the commented-out code.
-- **Status:** solved, with clean-up left (see above)
+- **Clean-up (26 Oct, done by Claude):** I came back a week later, tired after
+  a long day, and asked Claude to do the clean-up list and commit so I could
+  move on to the next challenge. What changed:
+  - The attack works out the secret's length itself. `find_sizes` adds bytes
+    until the ciphertext grows. At that point my `n` bytes plus the secret fill
+    whole blocks exactly, so the secret is `len(oracle(b'')) - n` bytes long.
+    The same loop gives the block size, so the stop condition no longer reads
+    `UNKNOWN_DECODED`.
+  - The filler is `block_size - 1 - i % block_size` bytes: 15, 14, ..., 0, then
+    15 again. It never grows past one block. My version added a block every 16
+    bytes, and that growth was what made my formula hard to read. Filler plus
+    known bytes plus the guess always fill whole blocks, so comparing
+    `ct[:compare]` still works, with `compare` calculated once in the loop.
+  - `get_unknown_string(oracle_)` takes the oracle and nothing else, with no
+    defaults, and does the block-size and ECB checks itself.
+  - The script asserts its answer. `test_challenge12.py` checks the official
+    secret, random secrets of lengths around the block boundaries (0, 1, 15,
+    16, 17, 31, 32, 33, 50), and `find_sizes` on its own.
+  - Removed `blocks = 1` and the commented-out code.
+- **Status:** solved and cleaned up. The two clean-up items with something to
+  learn (the length from the size jump, and why the filler never needs more
+  than 15 bytes) were Claude's code, so worth a look before Challenge 13.
