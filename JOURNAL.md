@@ -10,6 +10,87 @@ worth turning into a blog post. Newest entries at the top of each set.
 
 ---
 
+## Next session (decided at the recall session, Wed Nov 25)
+
+I ran the whole deck in a Claude recall session, all 40 cards. I got 22
+right, 5 hard and 4 missed, read 5 info cards and flagged 4 bad cards.
+Recall over the last 14 days is about 54%. I've forgotten most of Set 1. I
+couldn't say what Challenges 3, 4, 6 or 8 were without a reminder. I also
+never learned the parts of Challenge 12 that Claude wrote in the clean-up.
+So before Challenge 13:
+
+1. **Redo Challenge 12 from scratch,** without looking at `stdlib.py`.
+   Work out the secret's length from the oracle, the filler length
+   (`15 - i % 16`) and the dictionary layout (filler + known bytes + guess)
+   myself this time. The Oct 26 clean-up note (Challenge 12, under Set 2)
+   already said to look at these before 13, and I didn't.
+2. **Reread Challenges 6 and 8 side by side** (`python/set1/06_*`,
+   `python/set1/08_*`). The questions to answer are why Hamming distance
+   finds the key length for repeating-key XOR, how the ciphertext splits
+   into one column per key byte, and why Hamming distance says nothing
+   about AES output.
+3. **Glance at** `python/cryptolib/__init__.py` (`xor_bytes` and why it
+   raises when plain `zip` would truncate) and Challenge 11's minimum input
+   (43 bytes, because the shortest prefix is the worst case).
+4. Then Challenge 13.
+
+The session also made me unsure that one cryptopals slot a week is enough.
+That doubt is noted in `~/Projects/WEEK.md`. Where a second slot would go
+is still open.
+
+---
+
+## Recall sessions
+
+### Wed Nov 25 — the whole deck, 40 cards, with Claude grading
+
+I typed every answer in my own words and Claude graded it with the code
+open. I got 22 right, 5 hard and 4 missed, read 5 info cards, and flagged 4
+cards as bad.
+
+- **What had faded:** most of Set 1. I couldn't say what Challenges 3, 4, 6
+  or 8 were about without a one-line reminder. Once I had the reminder, I
+  could reason about most of them. The ideas were still there, but the
+  setups were gone.
+- **What held:** the Set 2 basics. PKCS#7 counts, the full block of padding
+  on aligned data, why a wrong IV only breaks the first CBC block, how
+  sending 15 `A`s recovers a secret byte, and the secret's length from the
+  ciphertext size jump.
+- **Misses:** `zip` on unequal lengths. I said `ValueError`, but that's my
+  own `xor_bytes` check, and plain `zip` silently truncates. Challenge 11's
+  minimum input. I said 38 by using the longest prefix as the worst case,
+  when the shortest prefix (5) is the worst, giving 43. Why Hamming distance
+  is the wrong tool on AES output. And the Challenge 12 dictionary layout,
+  where I picked the right option but by guessing.
+- **The parts Claude wrote didn't stick.** The Challenge 12 filler
+  formula, and finding the secret's length from the jump in ciphertext
+  size, both came from Claude's Oct 26 clean-up. I couldn't explain where
+  the formula comes from. So I'm
+  redoing 12 from scratch (see "Next session").
+- **Bad cards (my flags, plus one Claude caught):** cards that named a
+  challenge without saying what it was, a card that asked me to remember a
+  debug line from July instead of the idea, one written in jargon from the
+  AES standards that I never studied, and one about base64 bit shifting that I'd just
+  look up. While checking `crypto-score-normalise`, Claude found its own
+  card was wrong. It said Challenge 4 has 60 lines of different lengths,
+  but `data/04.txt` has 326 lines, all 30 bytes except one. Claude also
+  admitted giving away the next card's answer by explaining base64 one card
+  early. The fixed cards (7: two new, one `-v2`, four rewritten with their
+  challenge's setup) went in the same day.
+- **Side questions worth keeping:** ECB in the wild (Adobe's 2013 leak:
+  passwords encrypted in ECB, cracked by counting identical ciphertexts and
+  reading the password hints, no key needed). Encodings built to defeat
+  frequency counts (homophonic substitution), and why modern systems rely on
+  the cipher instead (Kerckhoffs's principle). How `zip` and
+  `itertools.cycle` stop: `cycle` yields forever and lazily, and `zip` stops
+  when any input runs out.
+- **Blog hook:** three months after Set 1, with a week between sessions,
+  the setups were gone even where the ideas survived. And the AI that
+  graded my answers also checked its own flashcards, and found one of them
+  was wrong.
+
+---
+
 ## Entry template (copy this per challenge)
 
 ### Challenge NN — <title> · [link](https://cryptopals.com/sets/N/challenges/NN)
